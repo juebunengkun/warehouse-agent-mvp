@@ -83,6 +83,14 @@ uv run warehouse-agent --demo
 uv run streamlit run app.py
 ```
 
+## Example Cases
+
+复杂案例放在 `examples/` 目录中：
+
+- `examples/sales_channel_daily.md`：渠道经营分析日报，包含曝光/点击/下单/支付/退款/ARPU 等指标，以及渠道、地域、新老用户、会员等级等多维粒度。
+
+这个案例会触发表复用决策：Agent 会通过 MCP 检索元数据，并优先复用公共汇总表 `dws_trade_channel_day_summary_di`，只生成面向报表消费的 ADS SQL。对应回归测试在 `tests/test_examples.py`。
+
 ## LLM Config
 
 复制或编辑 `.env`：
@@ -141,6 +149,8 @@ LangGraph 主流程会通过 MCP client 调用这些工具。暴露的 MCP Tools
 当前测试覆盖：
 
 - 需求解析不会把“支付用户数”误判成“用户”维度。
+- 复杂中文术语会优先按最长词解析，避免把“支付转化率”误判成“转化率”、把“新老用户”误判成“用户”。
+- 复杂渠道经营日报案例可以完整跑通，并自动复用已有 DWS 表。
 - LangGraph 可以停在人工确认态。
 - 人工确认后可以继续生成完整方案。
 - SQL 自检能发现缺分区、缺 GROUP BY 等问题。
@@ -164,6 +174,8 @@ warehouse_agent_mvp/
     metric_definitions.md
     table_metadata.json
     dqc_templates.md
+  examples/
+    sales_channel_daily.md
   src/dw_agent/
     graph.py
     state.py

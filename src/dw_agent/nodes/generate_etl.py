@@ -17,12 +17,23 @@ def generate_etl(state: AgentState) -> AgentState:
         "order_id",
         "user_id",
         "sku_id",
+        "gmv_amount",
         "pay_amount",
+        "discount_amount",
+        "refund_amount",
         "order_status",
+        "exposure_user_id",
+        "click_user_id",
+        "order_user_id",
         "channel_id",
         "channel_name",
+        "channel_type",
         "region_id",
         "region_name",
+        "province_name",
+        "city_name",
+        "user_type",
+        "member_level",
         "event_time AS pay_time",
         "SUBSTR(event_time, 1, 10) AS stat_date",
     ]
@@ -53,8 +64,7 @@ SELECT
   {",\n  ".join(dwd_select_fields)}
 FROM {names["ods"]}
 WHERE dt = '${{bizdate}}'
-  AND is_valid = 1
-  AND order_status IN ('PAID', 'FINISHED');
+  AND is_valid = 1;
 
 {dws_step}
 

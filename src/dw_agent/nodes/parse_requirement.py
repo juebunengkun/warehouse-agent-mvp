@@ -8,7 +8,7 @@ from dw_agent.nodes.common import METRIC_COLUMNS
 from dw_agent.state import AgentState
 
 
-KNOWN_DIMENSIONS = ["日期", "地区", "渠道", "商品", "用户"]
+KNOWN_DIMENSIONS = ["日期", "地区", "渠道", "渠道类型", "省份", "城市", "新老用户", "会员等级", "商品", "用户"]
 
 
 def parse_requirement(state: AgentState) -> AgentState:
@@ -120,7 +120,8 @@ def _clean_text(value, fallback: str) -> str:
 
 
 def _extract_metrics(text: str) -> list[str]:
-    found = [metric for metric in METRIC_COLUMNS if metric in text]
+    matched = set(_find_known_terms(text, list(METRIC_COLUMNS)))
+    found = [metric for metric in METRIC_COLUMNS if metric in matched]
     if found:
         return found
 
@@ -138,17 +139,15 @@ def _extract_dimensions(text: str) -> list[str]:
     for segment in _dimension_segments(text):
         if "天" in segment or "日" in segment or "日期" in segment:
             found.append("日期")
-        for dimension in KNOWN_DIMENSIONS:
+        for dimension in _find_known_terms(segment, [item for item in KNOWN_DIMENSIONS if item != "用户"]):
             if dimension in segment:
                 found.append(dimension)
 
     if not found:
         if "日报" in text or "每天" in text or "每日" in text:
             found.append("日期")
-        for dimension in ["地区", "渠道", "商品"]:
-            if dimension in text:
-                found.append(dimension)
-        if re.search(r"(按|按照|以).{0,8}用户|用户维度|用户粒度", text):
+        found.extend(_find_known_terms(text, ["渠道类型", "地区", "渠道", "省份", "城市", "新老用户", "会员等级", "商品"]))
+        if re.search(r"(按|按照|以).{0,8}(用户ID|用户\s*ID)|用户维度|用户粒度|维度[为是包括:：]?用户(?:[、,，。\s]|$)", text):
             found.append("用户")
 
     if ("天" in text or "日报" in text or "每天" in text or "每日" in text) and "日期" not in found:
@@ -159,6 +158,24 @@ def _extract_dimensions(text: str) -> list[str]:
         if dimension not in ordered:
             ordered.append(dimension)
     return ordered or ["日期"]
+
+
+def _find_known_terms(text: str, terms: list[str]) -> list[str]:
+    matches: list[tuple[int, int, str]] = []
+    occupied: list[tuple[int, int]] = []
+    for term in sorted(terms, key=len, reverse=True):
+        start = 0
+        while True:
+            index = text.find(term, start)
+            if index == -1:
+                break
+            end = index + len(term)
+            if not any(index < used_end and end > used_start for used_start, used_end in occupied):
+                matches.append((index, end, term))
+                occupied.append((index, end))
+            start = index + 1
+    matches.sort(key=lambda item: item[0])
+    return [term for _, _, term in matches]
 
 
 def _dimension_segments(text: str) -> list[str]:
