@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 from dw_agent.config import DEFAULT_KB_PATH
-from dw_agent.metadata import LocalJsonMetadataProvider
+from dw_agent.metadata import MetadataProvider, get_metadata_provider
 from dw_agent.nodes.common import METRIC_COLUMNS, METRIC_SQL
 from dw_agent.tools import knowledge_search_tool, sql_validation_tool
 
@@ -49,6 +49,26 @@ def list_tables(layer: str | None = None) -> list[dict[str, Any]]:
     return tables
 
 
+def search_tables(
+    layer: str | None = None,
+    table_type: str | None = None,
+    business_process: str | None = None,
+    fields: list[str] | None = None,
+    metrics: list[str] | None = None,
+    grain: list[str] | str | None = None,
+    top_k: int = 5,
+) -> list[dict[str, Any]]:
+    return _metadata_provider().search_tables(
+        layer=layer,
+        table_type=table_type,
+        business_process=business_process,
+        fields=fields,
+        metrics=metrics,
+        grain=grain,
+        top_k=top_k,
+    )
+
+
 def get_table_schema(table_name: str) -> dict[str, Any]:
     table = _metadata_provider().get_table(table_name)
     if table:
@@ -71,8 +91,8 @@ def health_check() -> dict[str, Any]:
     }
 
 
-def _metadata_provider() -> LocalJsonMetadataProvider:
-    return LocalJsonMetadataProvider(DEFAULT_KB_PATH)
+def _metadata_provider() -> MetadataProvider:
+    return get_metadata_provider({"knowledge_base_path": DEFAULT_KB_PATH})
 
 
 def _coerce_parsed(parsed_requirement: dict[str, Any] | str) -> dict[str, Any]:

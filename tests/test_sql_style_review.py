@@ -43,7 +43,7 @@ SELECT user_id FROM final;
     assert any(issue["rule"] == "BAD_CTE_NAME" for issue in review["issues"])
 
 
-def test_sql_style_review_still_runs_core_rules():
+def test_sql_style_review_still_runs():
     from dw_agent.nodes.review_sql_style import review_sql_style_text
 
     sql = """

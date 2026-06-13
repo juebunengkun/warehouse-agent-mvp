@@ -75,9 +75,25 @@ def _split_markdown(path: Path) -> list[DocumentChunk]:
 
 
 def _split_json(path: Path) -> list[DocumentChunk]:
-    data = json.loads(path.read_text(encoding="utf-8"))
     chunks: list[DocumentChunk] = []
+    if path.name == "table_metadata.json":
+        from dw_agent.metadata import LocalJsonMetadataProvider
 
+        tables = LocalJsonMetadataProvider(path.parent).list_tables()
+        for table in tables:
+            name = table.get("name", "unknown_table")
+            text = json.dumps(table, ensure_ascii=False, indent=2)
+            chunks.append(
+                DocumentChunk(
+                    id=f"{path.name}:{name}",
+                    title=f"琛ㄧ粨鏋?{name}",
+                    source=path.name,
+                    text=text,
+                )
+            )
+        return chunks
+
+    data = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(data, dict) and isinstance(data.get("tables"), list):
         for table in data["tables"]:
             name = table.get("name", "unknown_table")

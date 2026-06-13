@@ -1,6 +1,16 @@
 from __future__ import annotations
 
 
+def test_get_metadata_provider_default_local_json(monkeypatch):
+    from dw_agent.metadata import LocalJsonMetadataProvider, get_metadata_provider
+
+    monkeypatch.delenv("WAREHOUSE_METADATA_PROVIDER", raising=False)
+
+    provider = get_metadata_provider({"knowledge_base_path": "knowledge_base"})
+
+    assert isinstance(provider, LocalJsonMetadataProvider)
+
+
 def test_metadata_provider_local_json():
     from dw_agent.metadata import LocalJsonMetadataProvider
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from typing import Any, Protocol
 
@@ -39,7 +40,9 @@ class MetadataProvider(Protocol):
 
 def get_metadata_provider(config: dict[str, Any] | None = None) -> MetadataProvider:
     config = config or {}
-    provider_type = str(config.get("type") or config.get("provider") or "local_json").lower()
+    provider_type = str(
+        config.get("type") or config.get("provider") or os.getenv("WAREHOUSE_METADATA_PROVIDER") or "local_json"
+    ).lower()
     if provider_type in {"mcp", "mcp_metadata"}:
         from dw_agent.metadata.mcp_provider import McpMetadataProvider
 

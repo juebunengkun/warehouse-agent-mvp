@@ -9,6 +9,7 @@ from mcp_server.tools.warehouse import (
     get_table_schema,
     health_check,
     list_tables,
+    search_tables,
     search_warehouse_docs,
     validate_sql,
 )
@@ -41,6 +42,28 @@ def get_metric_definition_tool(metric_name: str):
 def list_tables_tool(layer: str | None = None):
     """List known mock warehouse tables. Optionally filter by layer such as ODS, DWD, DWS, ADS, or DIM."""
     return list_tables(layer)
+
+
+@mcp.tool()
+def search_tables_tool(
+    layer: str | None = None,
+    table_type: str | None = None,
+    business_process: str | None = None,
+    fields: list[str] | None = None,
+    metrics: list[str] | None = None,
+    grain: list[str] | str | None = None,
+    top_k: int = 5,
+):
+    """Search metadata tables through the configured MetadataProvider."""
+    return search_tables(
+        layer=layer,
+        table_type=table_type,
+        business_process=business_process,
+        fields=fields,
+        metrics=metrics,
+        grain=grain,
+        top_k=top_k,
+    )
 
 
 @mcp.tool()

@@ -136,7 +136,33 @@ def test_modeling_strategy_selects_fact_by_metrics():
     assert any(field["name"] == "pay_amount" for field in fact_tables[0]["fields"])
 
 
-def test_reuse_decision_uses_hard_checks(monkeypatch):
+def test_modeling_strategy_selects_dim_by_metadata():
+    from dw_agent.nodes.common import DIMENSION_COLUMNS, METRIC_COLUMNS
+    from dw_agent.nodes.decide_modeling_strategy import decide_modeling_strategy
+
+    state = {
+        "knowledge_base_path": "knowledge_base",
+        "parsed": {
+            "business_theme": "metadata selection",
+            "metrics": [_metric_for_field(METRIC_COLUMNS, "sales_amount")],
+            "dimensions": [_dimension_for_field(DIMENSION_COLUMNS, "channel_id")],
+            "granularity": "channel",
+            "refresh_cycle": "T+1",
+        },
+        "reuse_decision": {"decision": "create_new_tables"},
+    }
+
+    result = decide_modeling_strategy(state)
+    dim_tables = result["modeling_strategy"]["dim_tables"]
+
+    assert dim_tables
+    assert dim_tables[0]["layer"] == "DIM"
+    assert dim_tables[0]["table_type"] == "dimension"
+    assert dim_tables[0]["certified"] is True
+    assert any(field["name"] == "channel_id" for field in dim_tables[0]["fields"])
+
+
+def test_reuse_decision_hard_checks(monkeypatch):
     result = _run_complex_case(monkeypatch)
     hard_checks = result["reuse_decision"]["hard_checks"]
 

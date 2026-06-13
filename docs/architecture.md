@@ -79,6 +79,23 @@ The selection rules use metadata attributes such as `layer`, `table_type`,
 as `dim_channel_df`, `dim_region_df`, and `dwd_sales_detail_di` may appear in
 demo metadata, but they are not hardcoded modeling rules.
 
+```mermaid
+flowchart LR
+    A["Agent nodes"] --> P["MetadataProvider"]
+    M["MCP Server tools"] --> P
+    P --> L["LocalJsonMetadataProvider"]
+    P --> C["McpMetadataProvider"]
+    C --> D["Future DataHub / OpenMetadata"]
+    C --> H["Future Hive Metastore"]
+    C --> I["Future InformationSchema"]
+    L --> J["knowledge_base/table_metadata.json"]
+```
+
+The MCP server calls the same provider boundary for `list_tables_tool`,
+`search_tables_tool`, and `get_table_schema_tool`. Replacing local JSON with a
+real metadata source should therefore happen inside the provider layer instead
+of inside agent nodes or MCP tool handlers.
+
 ## Tool Layer
 
 底层工具定义在 `src/dw_agent/tools.py`：

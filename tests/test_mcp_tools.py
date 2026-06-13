@@ -35,6 +35,56 @@ def test_mcp_metric_and_search_tools():
     assert all("title" in hit and "source" in hit for hit in hits)
 
 
+def test_mcp_tools_use_metadata_provider(monkeypatch):
+    from mcp_server.tools import warehouse
+
+    class FakeProvider:
+        def list_tables(self):
+            return [
+                {
+                    "name": "dim_provider_only_df",
+                    "layer": "DIM",
+                    "description": "provider-owned table",
+                    "fields": [{"name": "provider_dim_id", "type": "STRING"}],
+                    "grain": "provider_dim_id",
+                }
+            ]
+
+        def get_table(self, table_name):
+            if table_name != "dim_provider_only_df":
+                return None
+            return {
+                "name": "dim_provider_only_df",
+                "layer": "DIM",
+                "fields": [{"name": "provider_dim_id", "type": "STRING"}],
+                "grain": "provider_dim_id",
+            }
+
+        def search_tables(self, **kwargs):
+            return [
+                {
+                    "name": "dim_provider_only_df",
+                    "layer": kwargs.get("layer") or "DIM",
+                    "fields": [{"name": "provider_dim_id", "type": "STRING"}],
+                    "score": 99,
+                }
+            ]
+
+    monkeypatch.setattr(warehouse, "get_metadata_provider", lambda config=None: FakeProvider())
+
+    assert warehouse.list_tables("DIM") == [
+        {
+            "name": "dim_provider_only_df",
+            "layer": "DIM",
+            "description": "provider-owned table",
+            "field_count": 1,
+        }
+    ]
+    assert warehouse.get_table_schema("dim_provider_only_df")["matched"] is True
+    assert warehouse.search_tables(layer="DIM")[0]["name"] == "dim_provider_only_df"
+    assert warehouse.health_check()["table_count"] == 1
+
+
 def test_mcp_validate_sql_tool(monkeypatch):
     monkeypatch.setenv("WAREHOUSE_AGENT_USE_LLM", "false")
 
@@ -71,6 +121,7 @@ def test_mcp_server_stdio_health_tool(monkeypatch):
                 await session.initialize()
                 tools = await session.list_tools()
                 assert any(tool.name == "health_check_tool" for tool in tools.tools)
+                assert any(tool.name == "search_tables_tool" for tool in tools.tools)
                 result = await session.call_tool("health_check_tool", {})
                 payload = json.loads(result.content[0].text)
                 assert payload["status"] == "ok"

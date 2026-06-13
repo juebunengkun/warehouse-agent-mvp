@@ -43,9 +43,9 @@ flowchart TD
     C -->|No| E
     E --> F["MCP knowledge search"]
     E --> G["MCP metric lookup"]
-    E --> H["MCP metadata lookup"]
+    E --> H["MCP metadata lookup via MetadataProvider"]
     H --> I["Reuse decision"]
-    I --> J["Decide modeling strategy"]
+    I --> J["Decide modeling strategy via MetadataProvider"]
     F --> J
     G --> J
     J --> K["Generate modeling plan"]
@@ -78,6 +78,22 @@ demo fixtures only. Table selection is based on metadata attributes such as
 `layer`, `table_type`, `business_process`, `grain`, `primary_keys`,
 `foreign_keys`, `fields`, `update_mode`, `partition_key`, `certified`, and
 `sla_time`.
+
+Provider selection can be controlled with:
+
+```powershell
+$env:WAREHOUSE_METADATA_PROVIDER="local_json"  # default local mock metadata
+$env:WAREHOUSE_METADATA_PROVIDER="mcp"         # reserved MCP-backed provider
+```
+
+The current main flow is:
+
+```text
+parse_requirement -> retrieve_context -> decide_table_reuse
+-> decide_modeling_strategy -> generate_modeling -> generate_ddl
+-> generate_etl -> validate_sql -> review_sql_style
+-> generate_dqc -> review_outputs
+```
 
 ## Quick Start
 
@@ -157,6 +173,7 @@ LangGraph 主流程会通过 MCP client 调用这些工具。暴露的 MCP Tools
 - `search_warehouse_docs_tool`
 - `get_metric_definition_tool`
 - `list_tables_tool`
+- `search_tables_tool`
 - `get_table_schema_tool`
 - `validate_sql_tool`
 - `health_check_tool`
@@ -232,6 +249,9 @@ warehouse_agent_mvp/
 ## Current Limits
 
 - 元数据是模拟 JSON，不是生产元数据平台。
+- 外部 MCP/DataHub/OpenMetadata/Hive Metastore/InformationSchema 元数据源还需要继续接入。
+- 指标平台仍是本地 mock，还没有真实审批、血缘和版本管理。
+- 还没有真实调度平台或 DAG 发布。
 - RAG 是关键词检索，不是向量库。
 - SQL 自检包含规则校验和 `sqlglot` 结构校验，但还不是真实 SQL dry-run。
 - SQL 风格审查是 `sqlglot` + 规则兜底，不是完整 SQL 审核系统。
