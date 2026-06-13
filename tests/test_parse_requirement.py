@@ -38,3 +38,27 @@ def test_parse_requirement_prefers_longest_metric_and_dimension_terms(monkeypatc
     assert "订单数" not in parsed["metrics"]
     assert "转化率" not in parsed["metrics"]
     assert "用户" not in parsed["dimensions"]
+
+
+def test_parse_requirement_records_llm_failure_diagnostics(monkeypatch):
+    monkeypatch.setenv("WAREHOUSE_AGENT_USE_LLM", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    class BrokenModel:
+        def invoke(self, _prompt):
+            raise PermissionError("blocked")
+
+    import dw_agent.nodes.parse_requirement as parser
+
+    monkeypatch.setattr(parser, "get_chat_model", lambda: BrokenModel())
+
+    state = parser.parse_requirement(
+        {
+            "requirement": "做一个销售日报，按天、地区统计销售额。",
+            "knowledge_base_path": "knowledge_base",
+        }
+    )
+
+    assert state["parsed"]["parser_source"] == "rules_fallback_after_llm_error"
+    assert state["llm_diagnostics"]["status"] == "failed"
+    assert state["llm_diagnostics"]["error_type"] == "PermissionError"

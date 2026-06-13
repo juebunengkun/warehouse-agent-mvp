@@ -16,6 +16,7 @@ class AgentState(TypedDict, total=False):
     metric_context: list[dict[str, Any]]
     metadata_candidates: list[dict[str, Any]]
     memory_context: list[dict[str, Any]]
+    llm_diagnostics: dict[str, Any]
     reuse_decision: dict[str, Any]
     modeling_strategy: dict[str, Any]
     retrievals: dict[str, list[dict[str, Any]]]

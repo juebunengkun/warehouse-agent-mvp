@@ -16,6 +16,7 @@ def review_outputs(state: AgentState) -> AgentState:
     findings = [
         f"已命中指标口径：{', '.join(matched_metrics) if matched_metrics else '无'}。",
         f"需求解析来源：{parsed.get('parser_source', 'unknown')}。",
+        _llm_finding(state.get("llm_diagnostics", {})),
         f"当前粒度为：{parsed.get('granularity')}，与维度列表保持一致。",
         "DDL、ETL 和 DQC 均使用 `dt` 作为分区字段。",
     ]
@@ -103,6 +104,18 @@ def _strategy_review(strategy: dict) -> str:
     sections.append("\n#### 依赖计划\n\n")
     sections.append("\n".join(f"- {item}" for item in strategy.get("dependency_plan", [])) or "- 暂无依赖计划。")
     return "".join(sections)
+
+
+def _llm_finding(diagnostics: dict) -> str:
+    if not diagnostics:
+        return "LLM 诊断：未记录。"
+    if diagnostics.get("status") == "success":
+        return f"LLM 诊断：解析成功，模型 {diagnostics.get('model')}。"
+    if diagnostics.get("status") == "failed":
+        return "LLM 诊断：已尝试调用但失败，" f"错误类型 {diagnostics.get('error_type')}，已自动回退到规则解析。"
+    if diagnostics.get("enabled") and diagnostics.get("has_api_key"):
+        return f"LLM 诊断：已配置模型 {diagnostics.get('model')}，但当前未使用 LLM。"
+    return "LLM 诊断：未启用或缺少 API Key，使用规则解析。"
 
 
 def _reuse_review(reuse_decision: dict) -> str:

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+from typing import Any
 
-from dw_agent.llm import get_chat_model
+from dw_agent.llm import get_chat_model, llm_config_status, llm_error_diagnostics
 from dw_agent.nodes.common import METRIC_COLUMNS
 from dw_agent.state import AgentState
 
@@ -16,8 +17,8 @@ def parse_requirement(state: AgentState) -> AgentState:
 
     requirement = state["requirement"]
     parsed = _parse_with_rules(requirement)
-    parsed = _parse_with_llm(requirement, parsed)
-    return {**state, "parsed": parsed}
+    parsed, llm_diagnostics = _parse_with_llm(requirement, parsed)
+    return {**state, "parsed": parsed, "llm_diagnostics": llm_diagnostics}
 
 
 def _parse_with_rules(requirement: str) -> dict:
@@ -43,10 +44,20 @@ def _parse_with_rules(requirement: str) -> dict:
     return parsed
 
 
-def _parse_with_llm(requirement: str, fallback: dict) -> dict:
+def _parse_with_llm(requirement: str, fallback: dict) -> tuple[dict, dict[str, Any]]:
+    diagnostics = {
+        **llm_config_status(),
+        "attempted": False,
+        "status": "disabled",
+        "parser_source": fallback.get("parser_source", "rules"),
+    }
     model = get_chat_model()
     if model is None:
-        return fallback
+        diagnostics["status"] = "unavailable"
+        return fallback, diagnostics
+
+    diagnostics["attempted"] = True
+    diagnostics["status"] = "calling"
 
     prompt = f"""你是资深数据仓库需求分析助手。
 请把用户的报表需求解析成严格 JSON，不要输出 Markdown。
@@ -86,14 +97,24 @@ def _parse_with_llm(requirement: str, fallback: dict) -> dict:
         parsed["assumptions"] = _clean_list(data.get("assumptions"), fallback["assumptions"])
         parsed["data_layer_target"] = ["ODS", "DWD", "DWS", "ADS"]
         parsed["sql_dialect"] = "Hive SQL"
-        return parsed
+        diagnostics["status"] = "success"
+        diagnostics["parser_source"] = "llm"
+        return parsed, diagnostics
     except Exception as exc:
+        error = llm_error_diagnostics(exc)
         fallback["parser_source"] = "rules_fallback_after_llm_error"
         fallback["assumptions"] = [
             *fallback.get("assumptions", []),
-            f"LLM 调用失败，已回退到规则解析：{type(exc).__name__}。",
+            f"LLM 调用失败，已回退到规则解析：{error['error_type']}。",
         ]
-        return fallback
+        diagnostics.update(
+            {
+                "status": "failed",
+                "parser_source": "rules_fallback_after_llm_error",
+                **error,
+            }
+        )
+        return fallback, diagnostics
 
 
 def _extract_json(content: str) -> dict:

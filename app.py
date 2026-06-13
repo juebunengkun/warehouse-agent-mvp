@@ -23,11 +23,27 @@ def join_items(items: list[str]) -> str:
     return "、".join(items or [])
 
 
+def render_llm_diagnostics(diagnostics: dict) -> None:
+    if not diagnostics:
+        return
+    status = diagnostics.get("status")
+    model = diagnostics.get("model", "unknown")
+    if status == "success":
+        st.success(f"LLM 解析成功：{model}")
+    elif status == "failed":
+        st.warning("LLM 已尝试调用但失败，Agent 已回退到规则解析：" f"{diagnostics.get('error_type', 'unknown error')}")
+    elif diagnostics.get("enabled") and diagnostics.get("has_api_key"):
+        st.info(f"LLM 已配置：{model}，当前结果未使用 LLM。")
+    else:
+        st.info("LLM 未启用，当前使用规则解析。")
+
+
 def render_agent_result(result: dict) -> None:
     parsed_col, rag_col = st.columns([1, 1])
 
     with parsed_col:
         st.subheader("结构化需求")
+        render_llm_diagnostics(result.get("llm_diagnostics", {}))
         st.json(result.get("parsed", {}), expanded=True)
 
     with rag_col:

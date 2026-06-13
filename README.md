@@ -161,6 +161,12 @@ LangGraph 主流程会通过 MCP client 调用这些工具。暴露的 MCP Tools
 .\run_quality.ps1
 ```
 
+运行复杂渠道经营日报案例并打印关键诊断：
+
+```powershell
+.\run_complex_case.ps1
+```
+
 当前测试覆盖：
 
 - 需求解析不会把“支付用户数”误判成“用户”维度。
