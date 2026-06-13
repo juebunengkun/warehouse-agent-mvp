@@ -19,7 +19,8 @@ if ($status) {
     git commit -m "Prepare public GitHub release"
 }
 
-if (-not (git remote get-url origin 2>$null)) {
+$origin = git remote get-url origin 2>$null
+if ($LASTEXITCODE -ne 0) {
     gh repo create $RepoName --public --source . --remote origin --push
 } else {
     git push -u origin HEAD
