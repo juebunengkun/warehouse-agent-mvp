@@ -1,10 +1,22 @@
 # Warehouse Agent MVP
 
-一个面向数据开发场景的 **Report-to-Warehouse Modeling Agent**：
+**Warehouse Agent MVP** is a Report-to-Warehouse Agent for data development
+workflows. It turns natural-language reporting requirements into structured
+metrics and dimensions, reusable table decisions, ODS/DWD/DWS/ADS modeling
+plans, DDL, ETL SQL, DQC rules, and SQL validation reports.
 
-> 自然语言报表需求 -> 指标/维度解析 -> 人工确认 -> 元数据/RAG 工具检索 -> ODS/DWD/DWS/ADS 建模方案 -> DDL/ETL SQL/DQC -> SQL 自检。
+这个项目不是通用聊天分析助手，而是一个面向数仓开发交付链路的 Agent MVP。它用
+LangGraph 编排 requirement/context/generation/validation 子图，通过 MCP、RAG 和
+MetadataProvider 获取指标口径与表结构，并支持本地 JSON mock 元数据以及
+DuckDB/PostgreSQL/MySQL `information_schema` 真实元数据。
 
-当前项目仍是 MVP，但已经具备 Agent 雏形：LangGraph 子图状态机、MCP 工具调用、人工确认、表复用决策、建模策略决策、SQL 结构校验、SQL 风格审查、SQLite 记忆和修正回路。
+> Report requirement -> requirement parsing -> human confirmation -> metadata/RAG
+> retrieval -> table reuse decision -> modeling strategy -> DDL/ETL SQL/DQC ->
+> sqlglot validation -> SQL style review.
+
+当前项目仍是 MVP，但已经具备 Agent 雏形：LangGraph 子图状态机、MCP 工具调用、
+人工确认、表复用决策、建模策略决策、SQL 结构校验、SQL 风格审查、SQLite 记忆和
+修正回路。
 
 ## Screenshots
 
