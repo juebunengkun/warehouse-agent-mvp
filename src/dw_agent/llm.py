@@ -41,6 +41,13 @@ def get_chat_model():
     kwargs = {
         "model": os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
         "temperature": 0.1,
+        "default_headers": {
+            "User-Agent": os.getenv(
+                "WAREHOUSE_AGENT_USER_AGENT",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/126 Safari/537.36",
+            )
+        },
     }
     base_url = os.getenv("OPENAI_BASE_URL")
     if base_url:
