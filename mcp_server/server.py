@@ -13,7 +13,6 @@ from mcp_server.tools.warehouse import (
     validate_sql,
 )
 
-
 mcp = FastMCP(
     "warehouse-agent-mcp",
     instructions=(

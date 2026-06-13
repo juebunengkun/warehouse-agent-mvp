@@ -96,7 +96,11 @@ def sql_validation_tool(ddl: str, etl_sql: str, parsed: dict[str, Any]) -> tuple
     insert_count = len(re.findall(r"INSERT\s+OVERWRITE\s+TABLE", etl_sql, flags=re.IGNORECASE))
     min_insert_count = 2 if reuse_existing_dws else 3
     if insert_count < min_insert_count:
-        expected = "DWD、ADS 两段 INSERT OVERWRITE（复用 DWS 模式）" if reuse_existing_dws else "DWD、DWS、ADS 三段 INSERT OVERWRITE"
+        expected = (
+            "DWD、ADS 两段 INSERT OVERWRITE（复用 DWS 模式）"
+            if reuse_existing_dws
+            else "DWD、DWS、ADS 三段 INSERT OVERWRITE"
+        )
         errors.append(f"ETL SQL 应至少包含 {expected}。")
 
     if "WHERE dt = '${bizdate}'" not in etl_sql and "WHERE dt='${bizdate}'" not in etl_sql:
@@ -212,7 +216,7 @@ def _sqlglot_structural_checks(ddl: str, etl_sql: str, parsed: dict[str, Any]) -
     return {"errors": errors, "warnings": warnings, "summary": summary}
 
 
-def _find_insert_for_table(statements: list[exp.Expression], table_prefix: str) -> exp.Insert | None:
+def _find_insert_for_table(statements: list[Any], table_prefix: str) -> exp.Insert | None:
     for statement in statements:
         if not isinstance(statement, exp.Insert):
             continue

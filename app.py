@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from dw_agent.graph import run_agent
 from dw_agent.llm import llm_enabled
 
-
 load_dotenv()
 
 DEFAULT_REQUIREMENT = """做一个销售经营日报，按天、地区、渠道统计销售额、订单数、支付用户数和客单价。
@@ -40,24 +39,42 @@ def render_agent_result(result: dict) -> None:
                     st.markdown(f"**{doc['title']}** · `{doc['source']}` · score={doc['score']}")
                     st.write(doc["excerpt"])
 
-    tabs = st.tabs(["建模方案", "表复用", "DDL", "ETL SQL", "DQC", "SQL 自检", "记忆", "Agent 轨迹", "审阅", "完整报告"])
+    tabs = st.tabs(
+        [
+            "建模方案",
+            "建模策略",
+            "表复用",
+            "DDL",
+            "ETL SQL",
+            "DQC",
+            "SQL 自检",
+            "SQL 风格",
+            "记忆",
+            "Agent 轨迹",
+            "审阅",
+            "完整报告",
+        ]
+    )
 
     with tabs[0]:
         st.markdown(result.get("modeling_plan", ""))
 
     with tabs[1]:
-        st.json(result.get("reuse_decision", {}), expanded=True)
+        st.json(result.get("modeling_strategy", {}), expanded=True)
 
     with tabs[2]:
-        st.code(result.get("ddl", ""), language="sql")
+        st.json(result.get("reuse_decision", {}), expanded=True)
 
     with tabs[3]:
-        st.code(result.get("etl_sql", ""), language="sql")
+        st.code(result.get("ddl", ""), language="sql")
 
     with tabs[4]:
-        st.markdown(result.get("dqc_rules", ""))
+        st.code(result.get("etl_sql", ""), language="sql")
 
     with tabs[5]:
+        st.markdown(result.get("dqc_rules", ""))
+
+    with tabs[6]:
         validation = result.get("sql_validation", {})
         if validation.get("passed"):
             st.success("SQL 自检通过")
@@ -65,7 +82,15 @@ def render_agent_result(result: dict) -> None:
             st.error("SQL 自检存在问题")
         st.json(validation, expanded=True)
 
-    with tabs[6]:
+    with tabs[7]:
+        style_review = result.get("sql_style_review", {})
+        if style_review.get("passed"):
+            st.success("SQL 风格审查通过")
+        else:
+            st.warning("SQL 风格审查存在问题")
+        st.json(style_review, expanded=True)
+
+    with tabs[8]:
         if result.get("session_id"):
             st.success(f"当前结果已保存为 session #{result['session_id']}")
         memory_context = result.get("memory_context", [])
@@ -74,7 +99,7 @@ def render_agent_result(result: dict) -> None:
         else:
             st.info("暂无相关历史会话。")
 
-    with tabs[7]:
+    with tabs[9]:
         trace = result.get("tool_trace", [])
         if not trace:
             st.info("暂无工具调用轨迹。")
@@ -82,10 +107,10 @@ def render_agent_result(result: dict) -> None:
             with st.expander(f"{index}. {item.get('tool')}", expanded=False):
                 st.json(item, expanded=True)
 
-    with tabs[8]:
+    with tabs[10]:
         st.markdown(result.get("review", ""))
 
-    with tabs[9]:
+    with tabs[11]:
         st.download_button(
             "下载 Markdown 报告",
             data=result.get("final_report", ""),
@@ -159,7 +184,9 @@ if draft_state and not result:
         dimensions_text = st.text_input("维度（用、分隔）", value=join_items(parsed.get("dimensions", [])))
         refresh_cycle = st.text_input("刷新周期", value=parsed.get("refresh_cycle", ""))
         time_range = st.text_input("时间范围", value=parsed.get("time_range", ""))
-        assumptions_text = st.text_area("假设/补充说明（一行一个）", value="\n".join(parsed.get("assumptions", [])), height=120)
+        assumptions_text = st.text_area(
+            "假设/补充说明（一行一个）", value="\n".join(parsed.get("assumptions", [])), height=120
+        )
         confirmed = st.form_submit_button("2. 确认并生成方案", type="primary")
 
     if confirmed:

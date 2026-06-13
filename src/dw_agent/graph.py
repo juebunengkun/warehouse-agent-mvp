@@ -5,6 +5,7 @@ from pathlib import Path
 from langgraph.graph import END, StateGraph
 
 from dw_agent.config import DEFAULT_KB_PATH
+from dw_agent.nodes.decide_modeling_strategy import decide_modeling_strategy
 from dw_agent.nodes.decide_table_reuse import decide_table_reuse
 from dw_agent.nodes.generate_ddl import generate_ddl
 from dw_agent.nodes.generate_dqc import generate_dqc
@@ -13,9 +14,10 @@ from dw_agent.nodes.generate_modeling import generate_modeling
 from dw_agent.nodes.load_memory import load_memory_context
 from dw_agent.nodes.parse_requirement import parse_requirement
 from dw_agent.nodes.retrieve_context import retrieve_context
+from dw_agent.nodes.review import review_outputs
+from dw_agent.nodes.review_sql_style import review_sql_style, route_after_sql_style_review
 from dw_agent.nodes.rewrite_sql import rewrite_sql
 from dw_agent.nodes.route_requirement import route_after_requirement, route_requirement
-from dw_agent.nodes.review import review_outputs
 from dw_agent.nodes.save_memory import save_memory_context
 from dw_agent.nodes.validate_sql import route_after_sql_validation, validate_sql
 from dw_agent.state import AgentState
@@ -47,11 +49,13 @@ def build_context_graph():
 
 def build_generation_graph():
     workflow = StateGraph(AgentState)
+    workflow.add_node("decide_modeling_strategy", decide_modeling_strategy)
     workflow.add_node("generate_modeling", generate_modeling)
     workflow.add_node("generate_ddl", generate_ddl)
     workflow.add_node("generate_etl", generate_etl)
 
-    workflow.set_entry_point("generate_modeling")
+    workflow.set_entry_point("decide_modeling_strategy")
+    workflow.add_edge("decide_modeling_strategy", "generate_modeling")
     workflow.add_edge("generate_modeling", "generate_ddl")
     workflow.add_edge("generate_ddl", "generate_etl")
     workflow.add_edge("generate_etl", END)
@@ -61,12 +65,21 @@ def build_generation_graph():
 def build_validation_graph():
     workflow = StateGraph(AgentState)
     workflow.add_node("validate_sql", validate_sql)
+    workflow.add_node("review_sql_style", review_sql_style)
     workflow.add_node("rewrite_sql", rewrite_sql)
 
     workflow.set_entry_point("validate_sql")
     workflow.add_conditional_edges(
         "validate_sql",
         route_after_sql_validation,
+        {
+            "rewrite": "rewrite_sql",
+            "continue": "review_sql_style",
+        },
+    )
+    workflow.add_conditional_edges(
+        "review_sql_style",
+        route_after_sql_style_review,
         {
             "rewrite": "rewrite_sql",
             "continue": END,

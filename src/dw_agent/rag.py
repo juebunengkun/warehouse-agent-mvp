@@ -5,7 +5,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-
 KEY_TERMS = [
     "ODS",
     "DWD",

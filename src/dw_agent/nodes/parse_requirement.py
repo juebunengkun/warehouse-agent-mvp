@@ -7,7 +7,6 @@ from dw_agent.llm import get_chat_model
 from dw_agent.nodes.common import METRIC_COLUMNS
 from dw_agent.state import AgentState
 
-
 KNOWN_DIMENSIONS = ["日期", "地区", "渠道", "渠道类型", "省份", "城市", "新老用户", "会员等级", "商品", "用户"]
 
 
@@ -146,8 +145,12 @@ def _extract_dimensions(text: str) -> list[str]:
     if not found:
         if "日报" in text or "每天" in text or "每日" in text:
             found.append("日期")
-        found.extend(_find_known_terms(text, ["渠道类型", "地区", "渠道", "省份", "城市", "新老用户", "会员等级", "商品"]))
-        if re.search(r"(按|按照|以).{0,8}(用户ID|用户\s*ID)|用户维度|用户粒度|维度[为是包括:：]?用户(?:[、,，。\s]|$)", text):
+        found.extend(
+            _find_known_terms(text, ["渠道类型", "地区", "渠道", "省份", "城市", "新老用户", "会员等级", "商品"])
+        )
+        if re.search(
+            r"(按|按照|以).{0,8}(用户ID|用户\s*ID)|用户维度|用户粒度|维度[为是包括:：]?用户(?:[、,，。\s]|$)", text
+        ):
             found.append("用户")
 
     if ("天" in text or "日报" in text or "每天" in text or "每日" in text) and "日期" not in found:

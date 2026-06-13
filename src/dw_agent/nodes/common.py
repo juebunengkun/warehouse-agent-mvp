@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 TOPIC_CODES = {
     "销售": "sales",
     "交易": "trade",
@@ -83,7 +82,7 @@ def topic_code(parsed: dict[str, Any]) -> str:
 
 
 def metric_columns(metrics: list[str]) -> list[tuple[str, str, str, str]]:
-    columns = []
+    columns: list[tuple[str, str, str, str]] = []
     for metric in metrics:
         field, sql_type, comment = METRIC_COLUMNS.get(
             metric,

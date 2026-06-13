@@ -5,7 +5,7 @@ from dw_agent.state import AgentState
 
 
 def save_memory_context(state: AgentState) -> AgentState:
-    session_id = save_session(state)
+    session_id = save_session(dict(state))
     trace = [
         *state.get("tool_trace", []),
         {

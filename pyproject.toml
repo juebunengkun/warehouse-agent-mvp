@@ -23,7 +23,12 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "black>=25.0.0",
+    "isort>=6.0.0",
+    "mypy>=1.10.0",
+    "pre-commit>=4.0.0",
     "pytest>=9.0.0",
+    "ruff>=0.8.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -32,3 +37,29 @@ packages = ["src/dw_agent", "mcp_server"]
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 testpaths = ["tests"]
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_first_party = ["dw_agent", "mcp_server"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = ["src", "."]
+packages = ["dw_agent", "mcp_server"]
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+warn_unused_ignores = true

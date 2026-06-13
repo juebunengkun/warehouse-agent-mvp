@@ -42,7 +42,9 @@ def test_mcp_validate_sql_tool(monkeypatch):
     from mcp_server.tools.warehouse import validate_sql
 
     result = run_agent("做一个销售日报，按天、地区、渠道统计销售额和订单数，T+1 刷新。")
-    validation = validate_sql(result["ddl"], result["etl_sql"], {**result["parsed"], "reuse_decision": result["reuse_decision"]})
+    validation = validate_sql(
+        result["ddl"], result["etl_sql"], {**result["parsed"], "reuse_decision": result["reuse_decision"]}
+    )
 
     assert validation["passed"] is True
 

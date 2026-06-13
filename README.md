@@ -4,15 +4,17 @@
 
 > 自然语言报表需求 -> 指标/维度解析 -> 人工确认 -> 元数据/RAG 工具检索 -> ODS/DWD/DWS/ADS 建模方案 -> DDL/ETL SQL/DQC -> SQL 自检。
 
-当前项目仍是 MVP，但已经具备 Agent 雏形：LangGraph 子图状态机、MCP 工具调用、人工确认、表复用决策、SQL 结构校验、SQLite 记忆和修正回路。
+当前项目仍是 MVP，但已经具备 Agent 雏形：LangGraph 子图状态机、MCP 工具调用、人工确认、表复用决策、建模策略决策、SQL 结构校验、SQL 风格审查、SQLite 记忆和修正回路。
 
 ## Screenshots
 
-![Home](docs/home.svg)
+复杂渠道经营日报测试截图：
 
-![Generated Report](docs/generated-report.svg)
+![Complex Modeling Strategy](docs/screenshots/complex-modeling-strategy.png)
 
-真实 PNG 截图生成方式见 [docs/screenshots.md](docs/screenshots.md)。
+![SQL Style Review](docs/screenshots/complex-sql-style-review.png)
+
+轻量 SVG 界面预览和真实 PNG 截图生成方式见 [docs/screenshots.md](docs/screenshots.md)。
 
 ## Features
 
@@ -24,7 +26,9 @@
 - 记录工具调用轨迹，并对生成 SQL 做基础自检。
 - 通过 MCP client 调用本地 MCP Server，提供元数据、指标口径、知识库检索和 SQL 校验工具。
 - 判断已有 DWS/ADS 表是否可复用，避免盲目新建汇总表。
+- 生成建模策略，明确业务过程、事实表、维度表、汇总表、应用表、join_plan 和 dependency_plan。
 - 使用 `sqlglot` 做 SQL 解析和 GROUP BY 结构校验。
+- 做 SQL 风格审查，覆盖 SELECT *、CTE 层数、JOIN、DIM 分区、除零保护和 INSERT 分区。
 - 使用 SQLite 保存历史会话，并在相似需求中提供历史参考。
 - 无 API Key 也能跑 demo；配置 API Key 后需求解析会优先调用 LLM。
 
@@ -41,17 +45,20 @@ flowchart TD
     E --> G["MCP metric lookup"]
     E --> H["MCP metadata lookup"]
     H --> I["Reuse decision"]
-    F --> J["Generate modeling plan"]
+    I --> J["Decide modeling strategy"]
+    F --> J
     G --> J
-    I --> J
-    J --> K["Generate DDL"]
-    K --> L["Generate ETL SQL"]
-    L --> M["MCP SQL validation + sqlglot"]
-    M -->|Failed| N["Rewrite SQL once"]
-    N --> M
-    M -->|Passed or max retry| O["Generate DQC"]
-    O --> P["Review and final report"]
-    P --> Q["SQLite session memory"]
+    J --> K["Generate modeling plan"]
+    K --> L["Generate DDL"]
+    L --> M["Generate ETL SQL"]
+    M --> N["MCP SQL validation + sqlglot"]
+    N -->|Failed| O["Rewrite SQL once"]
+    O --> N
+    N --> P["SQL style review"]
+    P -->|Error| O
+    P -->|Passed or warn only| Q["Generate DQC"]
+    Q --> R["Review and final report"]
+    R --> S["SQLite session memory"]
 ```
 
 更多设计说明见 [docs/architecture.md](docs/architecture.md)。
@@ -112,6 +119,8 @@ WAREHOUSE_AGENT_USE_LLM=true
 
 没有 API Key 时也可以运行，系统会使用规则和模板生成一个稳定演示结果。
 
+如果 `check_api.ps1` 返回 `PermissionDeniedError: Your request was blocked.`，说明本地代码已经发起 LLM 请求，但上游接口拒绝了调用。常见原因是模型名不可用、API Key 没有该模型权限、第三方代理服务风控拦截，或接口并非完全兼容 OpenAI Chat Completions。此时 Agent 会自动回退到规则解析，`parsed.parser_source` 会显示 `rules_fallback_after_llm_error`。
+
 ## Local MCP Server
 
 启动 stdio 模式 MCP Server：
@@ -146,11 +155,20 @@ LangGraph 主流程会通过 MCP client 调用这些工具。暴露的 MCP Tools
 .\run_tests.ps1
 ```
 
+运行格式化、lint、类型检查和测试：
+
+```powershell
+.\run_quality.ps1
+```
+
 当前测试覆盖：
 
 - 需求解析不会把“支付用户数”误判成“用户”维度。
 - 复杂中文术语会优先按最长词解析，避免把“支付转化率”误判成“转化率”、把“新老用户”误判成“用户”。
 - 复杂渠道经营日报案例可以完整跑通，并自动复用已有 DWS 表。
+- 建模策略能识别 DIM 表、增全量策略、join_plan 和 dependency_plan。
+- 表复用决策会检查字段覆盖、粒度、业务过程、分区、认证和 SLA。
+- SQL 风格审查能发现 SELECT *、过多 CTE 和无意义 CTE 名称。
 - LangGraph 可以停在人工确认态。
 - 人工确认后可以继续生成完整方案。
 - SQL 自检能发现缺分区、缺 GROUP BY 等问题。
@@ -165,6 +183,7 @@ LangGraph 主流程会通过 MCP client 调用这些工具。暴露的 MCP Tools
 ```text
 warehouse_agent_mvp/
   app.py
+  run_quality.ps1
   mcp_server/
     server.py
     tools/
@@ -192,6 +211,7 @@ warehouse_agent_mvp/
 - 元数据是模拟 JSON，不是生产元数据平台。
 - RAG 是关键词检索，不是向量库。
 - SQL 自检包含规则校验和 `sqlglot` 结构校验，但还不是真实 SQL dry-run。
+- SQL 风格审查是 `sqlglot` + 规则兜底，不是完整 SQL 审核系统。
 - DQC 规则是模板生成，还没有接入真实 DQC 平台。
 - 生成 SQL 是初稿，真实落地前仍需人工 review。
 

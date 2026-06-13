@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from dw_agent.config import PROJECT_ROOT
-
 
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "sessions.db"
 
@@ -15,8 +14,7 @@ DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "sessions.db"
 def init_db(db_path: Path = DEFAULT_DB_PATH) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 created_at TEXT NOT NULL,
@@ -26,8 +24,7 @@ def init_db(db_path: Path = DEFAULT_DB_PATH) -> None:
                 sql_validation_json TEXT NOT NULL,
                 final_report TEXT NOT NULL
             )
-            """
-        )
+            """)
 
 
 def save_session(state: dict[str, Any], db_path: Path = DEFAULT_DB_PATH) -> int:
@@ -46,7 +43,7 @@ def save_session(state: dict[str, Any], db_path: Path = DEFAULT_DB_PATH) -> int:
             VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
                 state.get("requirement", ""),
                 json.dumps(state.get("parsed", {}), ensure_ascii=False),
                 json.dumps(state.get("reuse_decision", {}), ensure_ascii=False),
@@ -54,20 +51,22 @@ def save_session(state: dict[str, Any], db_path: Path = DEFAULT_DB_PATH) -> int:
                 state.get("final_report", ""),
             ),
         )
-        return int(cursor.lastrowid)
+        if cursor.lastrowid is None:
+            raise RuntimeError("SQLite did not return a session id")
+        return cursor.lastrowid
 
 
-def load_relevant_sessions(parsed: dict[str, Any], limit: int = 3, db_path: Path = DEFAULT_DB_PATH) -> list[dict[str, Any]]:
+def load_relevant_sessions(
+    parsed: dict[str, Any], limit: int = 3, db_path: Path = DEFAULT_DB_PATH
+) -> list[dict[str, Any]]:
     init_db(db_path)
     with sqlite3.connect(db_path) as conn:
-        rows = conn.execute(
-            """
+        rows = conn.execute("""
             SELECT id, created_at, requirement, parsed_json, reuse_decision_json, sql_validation_json
             FROM sessions
             ORDER BY id DESC
             LIMIT 50
-            """
-        ).fetchall()
+            """).fetchall()
 
     scored = []
     for row in rows:

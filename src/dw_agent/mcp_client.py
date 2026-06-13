@@ -5,14 +5,12 @@ import json
 import os
 import sys
 import threading
-from pathlib import Path
 from typing import Any
 
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
 from dw_agent.config import PROJECT_ROOT
-
 
 ToolCall = tuple[str, dict[str, Any]]
 

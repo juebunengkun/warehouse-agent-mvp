@@ -20,7 +20,9 @@ def test_graph_generates_after_human_confirmation(monkeypatch):
     from dw_agent.graph import run_agent
 
     draft = run_agent("做一个销售日报，按天、地区、渠道统计销售额和订单数，T+1 刷新。", require_confirmation=True)
-    result = run_agent("做一个销售日报，按天、地区、渠道统计销售额和订单数，T+1 刷新。", approved_parsed=draft["parsed"])
+    result = run_agent(
+        "做一个销售日报，按天、地区、渠道统计销售额和订单数，T+1 刷新。", approved_parsed=draft["parsed"]
+    )
 
     assert result["agent_decision"] == "continue_generation"
     assert result["sql_validation"]["passed"] is True

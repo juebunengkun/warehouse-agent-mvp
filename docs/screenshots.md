@@ -1,6 +1,11 @@
 # Screenshots
 
-README 中的 `home.svg` 和 `generated-report.svg` 是可直接提交到 GitHub 的轻量界面预览图。
+README 中优先展示复杂渠道经营日报测试截图：
+
+- `docs/screenshots/complex-modeling-strategy.png`
+- `docs/screenshots/complex-sql-style-review.png`
+
+`home.svg` 和 `generated-report.svg` 是可直接提交到 GitHub 的轻量界面预览图。
 
 如果需要生成真实 PNG 截图，可以先启动应用：
 

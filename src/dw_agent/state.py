@@ -17,12 +17,14 @@ class AgentState(TypedDict, total=False):
     metadata_candidates: list[dict[str, Any]]
     memory_context: list[dict[str, Any]]
     reuse_decision: dict[str, Any]
+    modeling_strategy: dict[str, Any]
     retrievals: dict[str, list[dict[str, Any]]]
     modeling_plan: str
     ddl: str
     etl_sql: str
     validation_attempts: int
     sql_validation: dict[str, Any]
+    sql_style_review: dict[str, Any]
     dqc_rules: str
     review: str
     final_report: str

@@ -3,6 +3,16 @@
     {
       "name": "ods_sales_event_di",
       "layer": "ODS",
+      "business_process": "channel_operation",
+      "table_type": "raw_event",
+      "grain": "event_id/order_id",
+      "primary_keys": ["event_id", "order_id"],
+      "foreign_keys": [],
+      "update_mode": "incremental",
+      "partition_key": "dt",
+      "owner": "source_data",
+      "sla_time": "04:30",
+      "certified": true,
       "description": "销售业务原始事件表，按业务日期 dt 分区，包含曝光、点击、下单、支付和退款事件。",
       "fields": [
         {"name": "order_id", "type": "STRING", "comment": "订单 ID"},
@@ -33,6 +43,38 @@
     {
       "name": "dwd_sales_detail_di",
       "layer": "DWD",
+      "business_process": "trade_order",
+      "table_type": "transaction_fact",
+      "grain": "order_id",
+      "primary_keys": ["order_id"],
+      "foreign_keys": [
+        {
+          "field": "channel_id",
+          "ref_table": "dim_channel_df",
+          "ref_field": "channel_id",
+          "join_type": "left_join",
+          "partition_mapping": "dim.dt='${bizdate}'"
+        },
+        {
+          "field": "region_id",
+          "ref_table": "dim_region_df",
+          "ref_field": "region_id",
+          "join_type": "left_join",
+          "partition_mapping": "dim.dt='${bizdate}'"
+        },
+        {
+          "field": "user_id",
+          "ref_table": "dim_user_profile_df",
+          "ref_field": "user_id",
+          "join_type": "left_join",
+          "partition_mapping": "dim.dt='${bizdate}'"
+        }
+      ],
+      "update_mode": "incremental",
+      "partition_key": "dt",
+      "owner": "trade_data",
+      "sla_time": "05:30",
+      "certified": true,
       "description": "清洗后的销售订单明细事实表，承接 ODS 原始事件并统一渠道、地域和用户标签。",
       "fields": [
         {"name": "order_id", "type": "STRING", "comment": "订单 ID"},
@@ -63,8 +105,17 @@
     {
       "name": "dws_sales_day_summary_di",
       "layer": "DWS",
+      "business_process": "trade_order",
+      "table_type": "summary_fact",
+      "grain": "stat_date + region_id + region_name + channel_id + channel_name",
+      "primary_keys": ["stat_date", "region_id", "channel_id"],
+      "foreign_keys": [],
+      "update_mode": "incremental",
+      "partition_key": "dt",
+      "owner": "trade_data",
+      "sla_time": "06:30",
+      "certified": true,
       "description": "按天、地区、渠道聚合的销售主题汇总表，适合基础销售日报复用。",
-      "grain": "stat_date + region_id + channel_id",
       "fields": [
         {"name": "stat_date", "type": "STRING", "comment": "统计日期"},
         {"name": "region_id", "type": "STRING", "comment": "地区 ID"},
@@ -81,6 +132,31 @@
     {
       "name": "dwd_user_visit_log_di",
       "layer": "DWD",
+      "business_process": "traffic",
+      "table_type": "transaction_fact",
+      "grain": "event_id",
+      "primary_keys": ["event_id"],
+      "foreign_keys": [
+        {
+          "field": "channel_id",
+          "ref_table": "dim_channel_df",
+          "ref_field": "channel_id",
+          "join_type": "left_join",
+          "partition_mapping": "dim.dt='${bizdate}'"
+        },
+        {
+          "field": "user_id",
+          "ref_table": "dim_user_profile_df",
+          "ref_field": "user_id",
+          "join_type": "left_join",
+          "partition_mapping": "dim.dt='${bizdate}'"
+        }
+      ],
+      "update_mode": "incremental",
+      "partition_key": "dt",
+      "owner": "traffic_data",
+      "sla_time": "05:20",
+      "certified": true,
       "description": "用户访问行为明细表，覆盖曝光、点击、渠道、地域、新老用户和会员等级标签。",
       "fields": [
         {"name": "event_id", "type": "STRING", "comment": "事件 ID"},
@@ -103,8 +179,17 @@
     {
       "name": "dws_trade_channel_day_summary_di",
       "layer": "DWS",
+      "business_process": "channel_operation",
+      "table_type": "summary_fact",
+      "grain": "stat_date + channel_id + channel_name + channel_type + province_name + city_name + user_type + member_level",
+      "primary_keys": ["stat_date", "channel_id", "province_name", "city_name", "user_type", "member_level"],
+      "foreign_keys": [],
+      "update_mode": "incremental",
+      "partition_key": "dt",
+      "owner": "trade_data",
+      "sla_time": "07:30",
+      "certified": true,
       "description": "渠道经营日报公共汇总表，覆盖曝光UV、点击UV、下单用户数、支付用户数、支付订单数、GMV、实付金额、优惠金额、退款金额、支付转化率、客单价和 ARPU。",
-      "grain": "stat_date + channel_id + channel_type + province_name + city_name + user_type + member_level",
       "fields": [
         {"name": "stat_date", "type": "STRING", "comment": "统计日期"},
         {"name": "channel_id", "type": "STRING", "comment": "渠道 ID"},
@@ -132,8 +217,17 @@
     {
       "name": "ads_channel_operation_daily_report_di",
       "layer": "ADS",
+      "business_process": "channel_operation",
+      "table_type": "application_report",
+      "grain": "stat_date + channel_id + channel_name + channel_type + province_name + city_name + user_type + member_level",
+      "primary_keys": ["stat_date", "channel_id", "province_name", "city_name", "user_type", "member_level"],
+      "foreign_keys": [],
+      "update_mode": "incremental",
+      "partition_key": "dt",
+      "owner": "bi_data",
+      "sla_time": "08:30",
+      "certified": true,
       "description": "渠道经营分析日报 ADS 表，供 BI 和运营看板查询。",
-      "grain": "stat_date + channel_id + province_name + city_name + user_type + member_level",
       "fields": [
         {"name": "stat_date", "type": "STRING", "comment": "统计日期"},
         {"name": "channel_id", "type": "STRING", "comment": "渠道 ID"},
@@ -162,6 +256,16 @@
     {
       "name": "dim_region_df",
       "layer": "DIM",
+      "business_process": "region",
+      "table_type": "dimension",
+      "grain": "region_id",
+      "primary_keys": ["region_id"],
+      "foreign_keys": [],
+      "update_mode": "full_snapshot",
+      "partition_key": "dt",
+      "owner": "data_platform",
+      "sla_time": "06:00",
+      "certified": true,
       "description": "地区维表，全量快照。",
       "fields": [
         {"name": "region_id", "type": "STRING", "comment": "地区 ID"},
@@ -174,6 +278,16 @@
     {
       "name": "dim_channel_df",
       "layer": "DIM",
+      "business_process": "channel",
+      "table_type": "dimension",
+      "grain": "channel_id",
+      "primary_keys": ["channel_id"],
+      "foreign_keys": [],
+      "update_mode": "full_snapshot",
+      "partition_key": "dt",
+      "owner": "data_platform",
+      "sla_time": "06:00",
+      "certified": true,
       "description": "渠道维表，全量快照。",
       "fields": [
         {"name": "channel_id", "type": "STRING", "comment": "渠道 ID"},
@@ -185,6 +299,16 @@
     {
       "name": "dim_user_profile_df",
       "layer": "DIM",
+      "business_process": "user_profile",
+      "table_type": "dimension",
+      "grain": "user_id",
+      "primary_keys": ["user_id"],
+      "foreign_keys": [],
+      "update_mode": "full_snapshot",
+      "partition_key": "dt",
+      "owner": "user_data",
+      "sla_time": "06:20",
+      "certified": true,
       "description": "用户画像维表，全量快照，提供新老用户和会员等级标签。",
       "fields": [
         {"name": "user_id", "type": "STRING", "comment": "用户 ID"},
