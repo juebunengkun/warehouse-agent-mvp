@@ -63,6 +63,22 @@ flowchart TD
 
 更多设计说明见 [docs/architecture.md](docs/architecture.md)。
 
+## Metadata Provider
+
+The agent now reads warehouse metadata through `dw_agent.metadata.MetadataProvider`.
+The default provider is `LocalJsonMetadataProvider`, which treats
+`knowledge_base/table_metadata.json` as mock metadata for local demo and tests.
+Production can replace it with `McpMetadataProvider` or another implementation
+backed by Hive Metastore, DataHub, Glue, an internal metadata platform, or a
+metric platform.
+
+Core modeling logic should not memorize fixture table names such as
+`dim_channel_df`, `dim_region_df`, or `dwd_sales_detail_di`. Those names are
+demo fixtures only. Table selection is based on metadata attributes such as
+`layer`, `table_type`, `business_process`, `grain`, `primary_keys`,
+`foreign_keys`, `fields`, `update_mode`, `partition_key`, `certified`, and
+`sla_time`.
+
 ## Quick Start
 
 在本目录执行：
@@ -207,6 +223,7 @@ warehouse_agent_mvp/
     mcp_client.py
     memory.py
     tools.py
+    metadata/
     nodes/
   tests/
   docs/

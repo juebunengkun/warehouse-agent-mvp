@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 from dw_agent.config import DEFAULT_KB_PATH
+from dw_agent.metadata import LocalJsonMetadataProvider
 from dw_agent.nodes.common import METRIC_COLUMNS, METRIC_SQL
 from dw_agent.tools import knowledge_search_tool, sql_validation_tool
 
@@ -31,10 +31,10 @@ def get_metric_definition(metric_name: str) -> dict[str, Any]:
 
 
 def list_tables(layer: str | None = None) -> list[dict[str, Any]]:
-    data = _load_table_metadata()
+    provider = _metadata_provider()
     requested_layer = layer.upper() if layer else None
     tables = []
-    for table in data.get("tables", []):
+    for table in provider.list_tables():
         table_layer = str(table.get("layer", "")).upper()
         if requested_layer and table_layer != requested_layer:
             continue
@@ -50,10 +50,9 @@ def list_tables(layer: str | None = None) -> list[dict[str, Any]]:
 
 
 def get_table_schema(table_name: str) -> dict[str, Any]:
-    data = _load_table_metadata()
-    for table in data.get("tables", []):
-        if table.get("name") == table_name:
-            return {"matched": True, **table}
+    table = _metadata_provider().get_table(table_name)
+    if table:
+        return {"matched": True, **table}
     return {"matched": False, "name": table_name, "fields": []}
 
 
@@ -67,14 +66,13 @@ def health_check() -> dict[str, Any]:
     return {
         "status": "ok",
         "knowledge_base_path": kb_path(),
-        "table_count": len(_load_table_metadata().get("tables", [])),
+        "table_count": len(_metadata_provider().list_tables()),
         "metric_count": len(METRIC_COLUMNS),
     }
 
 
-def _load_table_metadata() -> dict[str, Any]:
-    path = Path(kb_path()) / "table_metadata.json"
-    return json.loads(path.read_text(encoding="utf-8"))
+def _metadata_provider() -> LocalJsonMetadataProvider:
+    return LocalJsonMetadataProvider(DEFAULT_KB_PATH)
 
 
 def _coerce_parsed(parsed_requirement: dict[str, Any] | str) -> dict[str, Any]:

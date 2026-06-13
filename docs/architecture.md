@@ -44,11 +44,40 @@ Context subgraph:
   retrieve_context -> decide_table_reuse
 
 Generation subgraph:
-  generate_modeling -> generate_ddl -> generate_etl
+  decide_modeling_strategy -> generate_modeling -> generate_ddl -> generate_etl
 
 Validation subgraph:
+  validate_sql -> review_sql_style -> END
   validate_sql -> rewrite_sql -> validate_sql
+  review_sql_style -> rewrite_sql -> validate_sql
 ```
+
+## Metadata Provider Layer
+
+Warehouse metadata is accessed through `dw_agent.metadata.MetadataProvider`.
+The current MVP default is `LocalJsonMetadataProvider`, which reads
+`knowledge_base/table_metadata.json` as mock metadata. This JSON file simulates
+the response shape of a real metadata platform; it is not meant to be business
+logic.
+
+Production can swap the provider to `McpMetadataProvider` or a custom provider
+backed by Hive Metastore, DataHub, Glue, an internal metadata service, or a
+metric platform. Modeling nodes consume the same interface:
+
+```text
+list_tables()
+get_table(table_name)
+search_tables(layer, table_type, business_process, fields, metrics, grain)
+search_dimensions(semantic_dimensions)
+search_facts(metrics, business_process)
+search_summaries(dimensions, metrics, grain, business_process)
+```
+
+The selection rules use metadata attributes such as `layer`, `table_type`,
+`business_process`, `grain`, `primary_keys`, `foreign_keys`, `fields`,
+`update_mode`, `partition_key`, `certified`, and `sla_time`. Fixture names such
+as `dim_channel_df`, `dim_region_df`, and `dwd_sales_detail_di` may appear in
+demo metadata, but they are not hardcoded modeling rules.
 
 ## Tool Layer
 

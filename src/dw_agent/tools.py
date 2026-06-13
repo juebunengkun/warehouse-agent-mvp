@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 from typing import Any
 
 import sqlglot
 from sqlglot import exp
 
+from dw_agent.metadata import get_metadata_provider
 from dw_agent.nodes.common import (
     DIMENSION_COLUMNS,
     METRIC_COLUMNS,
@@ -50,18 +50,14 @@ def metric_lookup_tool(metrics: list[str]) -> tuple[list[dict[str, Any]], dict[s
 
 
 def metadata_lookup_tool(kb_path: str, parsed: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    path = Path(kb_path) / "table_metadata.json"
-    if not path.exists():
-        return [], {"tool": "metadata_lookup", "input": {}, "output": {"error": "table_metadata.json not found"}}
-
-    data = json.loads(path.read_text(encoding="utf-8"))
+    provider = get_metadata_provider({"knowledge_base_path": kb_path})
     keywords = set(parsed.get("metrics", [])) | set(parsed.get("dimensions", []))
     topic = str(parsed.get("business_theme", "")).replace("主题", "")
     if topic:
         keywords.add(topic)
 
     candidates = []
-    for table in data.get("tables", []):
+    for table in provider.list_tables():
         payload = json.dumps(table, ensure_ascii=False)
         score = sum(1 for keyword in keywords if keyword and keyword in payload)
         if score > 0:
@@ -73,7 +69,7 @@ def metadata_lookup_tool(kb_path: str, parsed: dict[str, Any]) -> tuple[list[dic
                     "score": score,
                 }
             )
-    candidates.sort(key=lambda item: item["score"], reverse=True)
+    candidates.sort(key=lambda item: int(item.get("score") or 0), reverse=True)
     return candidates[:6], {
         "tool": "metadata_lookup",
         "input": {"keywords": sorted(keywords)},
