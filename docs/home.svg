@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <rect width="1440" height="900" fill="#f7f8fa"/>
+  <rect x="0" y="0" width="320" height="900" fill="#ffffff"/>
+  <line x1="320" y1="0" x2="320" y2="900" stroke="#e6e8eb"/>
+  <text x="42" y="70" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700" fill="#20242a">运行说明</text>
+  <text x="42" y="118" font-family="Segoe UI, sans-serif" font-size="18" fill="#4b5563">当前知识库来自 knowledge_base/</text>
+  <rect x="42" y="150" width="230" height="42" rx="8" fill="#e8f5ed"/>
+  <text x="58" y="177" font-family="Segoe UI, sans-serif" font-size="17" fill="#166534">LLM 已启用：gpt-5.5</text>
+  <text x="42" y="236" font-family="Segoe UI, sans-serif" font-size="17" fill="#4b5563">当前流程：</text>
+  <text x="42" y="268" font-family="Segoe UI, sans-serif" font-size="16" fill="#4b5563">需求解析 → 人工确认 → 工具检索</text>
+  <text x="42" y="298" font-family="Segoe UI, sans-serif" font-size="16" fill="#4b5563">SQL 生成 → SQL 自检 → 审阅</text>
+
+  <text x="380" y="82" font-family="Segoe UI, sans-serif" font-size="44" font-weight="700" fill="#171a1f">数仓建模 Agent MVP</text>
+  <text x="380" y="126" font-family="Segoe UI, sans-serif" font-size="20" fill="#5b6472">输入报表需求，Agent 会先解析并等待确认，再调用工具生成方案、SQL 和 DQC。</text>
+
+  <text x="380" y="194" font-family="Segoe UI, sans-serif" font-size="20" font-weight="600" fill="#20242a">报表需求</text>
+  <rect x="380" y="215" width="960" height="160" rx="10" fill="#ffffff" stroke="#d7dce2"/>
+  <text x="408" y="260" font-family="Segoe UI, sans-serif" font-size="20" fill="#29313d">做一个销售经营日报，按天、地区、渠道统计销售额、订单数、支付用户数和客单价。</text>
+  <text x="408" y="302" font-family="Segoe UI, sans-serif" font-size="20" fill="#29313d">要求 T+1 每天早上刷新，可以查看近 30 天数据。</text>
+
+  <rect x="380" y="410" width="180" height="46" rx="8" fill="#ff4b4b"/>
+  <text x="417" y="440" font-family="Segoe UI, sans-serif" font-size="18" font-weight="700" fill="#ffffff">1. 解析需求</text>
+  <rect x="585" y="410" width="210" height="46" rx="8" fill="#ffffff" stroke="#d7dce2"/>
+  <text x="622" y="440" font-family="Segoe UI, sans-serif" font-size="18" fill="#20242a">跳过确认，直接生成</text>
+
+  <rect x="380" y="515" width="960" height="86" rx="10" fill="#eef6ff" stroke="#cfe4ff"/>
+  <text x="408" y="566" font-family="Segoe UI, sans-serif" font-size="20" fill="#1d4ed8">填写一个报表需求，然后点击“1. 解析需求”。</text>
+</svg>

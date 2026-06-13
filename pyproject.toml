@@ -1,0 +1,33 @@
+[project]
+name = "warehouse-agent-mvp"
+version = "0.1.0"
+description = "A Streamlit + LangGraph MVP for warehouse modeling, SQL, and DQC generation."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain-openai>=0.1.0",
+    "langgraph>=0.2.0",
+    "mcp>=1.27.0",
+    "python-dotenv>=1.0.1",
+    "streamlit>=1.36.0",
+]
+
+[project.scripts]
+warehouse-agent = "dw_agent.cli:main"
+warehouse-agent-mcp = "mcp_server.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dw_agent", "mcp_server"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]

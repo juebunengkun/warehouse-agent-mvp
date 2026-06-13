@@ -1,0 +1,83 @@
+{
+  "tables": [
+    {
+      "name": "ods_sales_event_di",
+      "layer": "ODS",
+      "description": "销售业务原始事件表，按业务日期 dt 分区。",
+      "fields": [
+        {"name": "order_id", "type": "STRING", "comment": "订单 ID"},
+        {"name": "user_id", "type": "STRING", "comment": "用户 ID"},
+        {"name": "sku_id", "type": "STRING", "comment": "商品 SKU ID"},
+        {"name": "pay_amount", "type": "DECIMAL(18,2)", "comment": "支付金额"},
+        {"name": "order_status", "type": "STRING", "comment": "订单状态"},
+        {"name": "channel_id", "type": "STRING", "comment": "渠道 ID"},
+        {"name": "channel_name", "type": "STRING", "comment": "渠道名称"},
+        {"name": "region_id", "type": "STRING", "comment": "地区 ID"},
+        {"name": "region_name", "type": "STRING", "comment": "地区名称"},
+        {"name": "event_time", "type": "STRING", "comment": "事件时间"},
+        {"name": "is_valid", "type": "TINYINT", "comment": "是否有效记录"},
+        {"name": "dt", "type": "STRING", "comment": "分区日期"}
+      ]
+    },
+    {
+      "name": "dwd_sales_detail_di",
+      "layer": "DWD",
+      "description": "清洗后的销售订单明细事实表。",
+      "fields": [
+        {"name": "order_id", "type": "STRING", "comment": "订单 ID"},
+        {"name": "user_id", "type": "STRING", "comment": "用户 ID"},
+        {"name": "sku_id", "type": "STRING", "comment": "商品 SKU ID"},
+        {"name": "pay_amount", "type": "DECIMAL(18,2)", "comment": "支付金额"},
+        {"name": "order_status", "type": "STRING", "comment": "订单状态"},
+        {"name": "channel_id", "type": "STRING", "comment": "渠道 ID"},
+        {"name": "channel_name", "type": "STRING", "comment": "渠道名称"},
+        {"name": "region_id", "type": "STRING", "comment": "地区 ID"},
+        {"name": "region_name", "type": "STRING", "comment": "地区名称"},
+        {"name": "pay_time", "type": "STRING", "comment": "支付时间"},
+        {"name": "stat_date", "type": "STRING", "comment": "统计日期"},
+        {"name": "dt", "type": "STRING", "comment": "分区日期"}
+      ]
+    },
+    {
+      "name": "dws_sales_day_summary_di",
+      "layer": "DWS",
+      "description": "按天、地区、渠道聚合的销售主题汇总表。",
+      "grain": "stat_date + region_id + channel_id",
+      "fields": [
+        {"name": "stat_date", "type": "STRING", "comment": "统计日期"},
+        {"name": "region_id", "type": "STRING", "comment": "地区 ID"},
+        {"name": "region_name", "type": "STRING", "comment": "地区名称"},
+        {"name": "channel_id", "type": "STRING", "comment": "渠道 ID"},
+        {"name": "channel_name", "type": "STRING", "comment": "渠道名称"},
+        {"name": "sales_amount", "type": "DECIMAL(18,2)", "comment": "销售额"},
+        {"name": "order_count", "type": "BIGINT", "comment": "订单数"},
+        {"name": "pay_user_count", "type": "BIGINT", "comment": "支付用户数"},
+        {"name": "avg_order_amount", "type": "DECIMAL(18,2)", "comment": "客单价"},
+        {"name": "dt", "type": "STRING", "comment": "分区日期"}
+      ]
+    },
+    {
+      "name": "dim_region_df",
+      "layer": "DIM",
+      "description": "地区维表，全量快照。",
+      "fields": [
+        {"name": "region_id", "type": "STRING", "comment": "地区 ID"},
+        {"name": "region_name", "type": "STRING", "comment": "地区名称"},
+        {"name": "province_name", "type": "STRING", "comment": "省份名称"},
+        {"name": "city_name", "type": "STRING", "comment": "城市名称"},
+        {"name": "dt", "type": "STRING", "comment": "分区日期"}
+      ]
+    },
+    {
+      "name": "dim_channel_df",
+      "layer": "DIM",
+      "description": "渠道维表，全量快照。",
+      "fields": [
+        {"name": "channel_id", "type": "STRING", "comment": "渠道 ID"},
+        {"name": "channel_name", "type": "STRING", "comment": "渠道名称"},
+        {"name": "channel_type", "type": "STRING", "comment": "渠道类型"},
+        {"name": "dt", "type": "STRING", "comment": "分区日期"}
+      ]
+    }
+  ]
+}

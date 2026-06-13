@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1020" viewBox="0 0 1440 1020">
+  <rect width="1440" height="1020" fill="#f7f8fa"/>
+  <rect x="0" y="0" width="320" height="1020" fill="#ffffff"/>
+  <line x1="320" y1="0" x2="320" y2="1020" stroke="#e6e8eb"/>
+  <text x="42" y="70" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700" fill="#20242a">运行说明</text>
+  <rect x="42" y="106" width="230" height="42" rx="8" fill="#e8f5ed"/>
+  <text x="58" y="133" font-family="Segoe UI, sans-serif" font-size="17" fill="#166534">LLM 已启用：gpt-5.5</text>
+  <text x="42" y="198" font-family="Segoe UI, sans-serif" font-size="16" fill="#4b5563">需求解析 → 人工确认 → 工具检索</text>
+  <text x="42" y="228" font-family="Segoe UI, sans-serif" font-size="16" fill="#4b5563">SQL 生成 → SQL 自检 → 审阅</text>
+
+  <text x="380" y="72" font-family="Segoe UI, sans-serif" font-size="40" font-weight="700" fill="#171a1f">数仓建模 Agent MVP</text>
+
+  <text x="380" y="145" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700" fill="#20242a">结构化需求</text>
+  <rect x="380" y="168" width="440" height="260" rx="10" fill="#ffffff" stroke="#d7dce2"/>
+  <text x="408" y="210" font-family="Consolas, monospace" font-size="17" fill="#29313d">{</text>
+  <text x="430" y="242" font-family="Consolas, monospace" font-size="17" fill="#29313d">"business_theme": "销售主题",</text>
+  <text x="430" y="274" font-family="Consolas, monospace" font-size="17" fill="#29313d">"metrics": ["销售额", "订单数", "支付用户数"],</text>
+  <text x="430" y="306" font-family="Consolas, monospace" font-size="17" fill="#29313d">"dimensions": ["日期", "地区", "渠道"],</text>
+  <text x="430" y="338" font-family="Consolas, monospace" font-size="17" fill="#29313d">"granularity": "日期-地区-渠道",</text>
+  <text x="430" y="370" font-family="Consolas, monospace" font-size="17" fill="#29313d">"parser_source": "llm_human_confirmed"</text>
+  <text x="408" y="402" font-family="Consolas, monospace" font-size="17" fill="#29313d">}</text>
+
+  <text x="870" y="145" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700" fill="#20242a">RAG 命中文档</text>
+  <rect x="870" y="168" width="470" height="260" rx="10" fill="#ffffff" stroke="#d7dce2"/>
+  <text x="900" y="215" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">数仓分层与命名规范 · warehouse_standards.md</text>
+  <text x="900" y="260" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">指标口径 · metric_definitions.md</text>
+  <text x="900" y="305" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">历史表结构 · table_metadata.json</text>
+  <text x="900" y="350" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">DQC 模板 · dqc_templates.md</text>
+
+  <rect x="380" y="470" width="960" height="58" rx="8" fill="#ffffff" stroke="#d7dce2"/>
+  <text x="410" y="507" font-family="Segoe UI, sans-serif" font-size="18" font-weight="700" fill="#ef4444">建模方案</text>
+  <text x="540" y="507" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">DDL</text>
+  <text x="625" y="507" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">ETL SQL</text>
+  <text x="745" y="507" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">DQC</text>
+  <text x="840" y="507" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">SQL 自检</text>
+  <text x="970" y="507" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">Agent 轨迹</text>
+  <text x="1120" y="507" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">审阅</text>
+
+  <text x="380" y="585" font-family="Segoe UI, sans-serif" font-size="28" font-weight="700" fill="#20242a">建模方案</text>
+  <rect x="380" y="620" width="960" height="280" rx="10" fill="#ffffff" stroke="#d7dce2"/>
+  <text x="410" y="666" font-family="Segoe UI, sans-serif" font-size="20" font-weight="700" fill="#20242a">分层设计</text>
+  <text x="410" y="712" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">ODS: ods_sales_event_di · 原始事件粒度</text>
+  <text x="410" y="752" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">DWD: dwd_sales_detail_di · 订单/事件明细粒度</text>
+  <text x="410" y="792" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">DWS: dws_sales_day_summary_di · 日期-地区-渠道</text>
+  <text x="410" y="832" font-family="Segoe UI, sans-serif" font-size="18" fill="#29313d">ADS: ads_sales_report_di · 面向报表展示</text>
+
+  <rect x="380" y="930" width="230" height="46" rx="8" fill="#e8f5ed"/>
+  <text x="408" y="960" font-family="Segoe UI, sans-serif" font-size="18" fill="#166534">SQL 自检通过</text>
+  <rect x="640" y="930" width="320" height="46" rx="8" fill="#eef6ff"/>
+  <text x="668" y="960" font-family="Segoe UI, sans-serif" font-size="18" fill="#1d4ed8">工具调用轨迹已记录</text>
+</svg>
