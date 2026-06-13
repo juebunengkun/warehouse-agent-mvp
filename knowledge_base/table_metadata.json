@@ -53,21 +53,21 @@
           "ref_table": "dim_channel_df",
           "ref_field": "channel_id",
           "join_type": "left_join",
-          "partition_mapping": "dim.dt='${bizdate}'"
+          "partition_mapping": "dim_channel_df.dt='${bizdate}'"
         },
         {
           "field": "region_id",
           "ref_table": "dim_region_df",
           "ref_field": "region_id",
           "join_type": "left_join",
-          "partition_mapping": "dim.dt='${bizdate}'"
+          "partition_mapping": "dim_region_df.dt='${bizdate}'"
         },
         {
           "field": "user_id",
           "ref_table": "dim_user_profile_df",
           "ref_field": "user_id",
           "join_type": "left_join",
-          "partition_mapping": "dim.dt='${bizdate}'"
+          "partition_mapping": "dim_user_profile_df.dt='${bizdate}'"
         }
       ],
       "update_mode": "incremental",
@@ -142,14 +142,14 @@
           "ref_table": "dim_channel_df",
           "ref_field": "channel_id",
           "join_type": "left_join",
-          "partition_mapping": "dim.dt='${bizdate}'"
+          "partition_mapping": "dim_channel_df.dt='${bizdate}'"
         },
         {
           "field": "user_id",
           "ref_table": "dim_user_profile_df",
           "ref_field": "user_id",
           "join_type": "left_join",
-          "partition_mapping": "dim.dt='${bizdate}'"
+          "partition_mapping": "dim_user_profile_df.dt='${bizdate}'"
         }
       ],
       "update_mode": "incremental",
