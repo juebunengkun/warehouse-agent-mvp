@@ -17,6 +17,8 @@ from dw_agent.state import AgentState
 def infer_business_process(parsed: dict[str, Any]) -> str:
     dimension_fields = semantic_dimension_fields(parsed.get("dimensions", []))
     metric_semantics = metric_fields(parsed.get("metrics", [])) | metric_source_fields(parsed.get("metrics", []))
+    if {"category_id", "category_level1_name", "category_level2_name"} & dimension_fields:
+        return "category_operation"
     if {"exposure_uv", "click_uv", "exposure_user_id", "click_user_id"} & metric_semantics:
         return "channel_operation"
     if {"channel_type", "user_type", "member_level"} & dimension_fields:

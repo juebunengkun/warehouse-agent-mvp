@@ -7,3 +7,5 @@ streamlit.log
 streamlit.err.log
 data/*.db
 data/*.db-*
+demo/*.duckdb
+demo/*.duckdb.*

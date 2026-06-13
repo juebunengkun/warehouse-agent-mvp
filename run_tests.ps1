@@ -7,9 +7,9 @@ if (-not (Test-Path $python)) {
     uv venv --clear --python 3.12 $venv
 }
 
-& $python -c "import streamlit, langgraph, langchain_openai, dotenv, mcp, pytest, sqlglot" 2>$null
+& $python -c "import streamlit, langgraph, langchain_openai, dotenv, mcp, pytest, sqlglot, duckdb" 2>$null
 if ($LASTEXITCODE -ne 0) {
-    uv pip install --python $python langgraph streamlit langchain-openai python-dotenv mcp pytest sqlglot
+    uv pip install --python $python -e . pytest
 }
 
 $env:PYTHONPATH = (Join-Path $PSScriptRoot "src") + ";" + $PSScriptRoot

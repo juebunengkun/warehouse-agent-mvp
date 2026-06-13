@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from dw_agent.metadata.information_schema_provider import InformationSchemaMetadataProvider
 from dw_agent.metadata.local_json_provider import LocalJsonMetadataProvider
 from dw_agent.metadata.mcp_provider import McpMetadataProvider
 from dw_agent.metadata.provider import (
@@ -37,6 +38,7 @@ def find_tables_by_names(table_names: list[str], kb_path: str | Path | None = No
 
 __all__ = [
     "MetadataProvider",
+    "InformationSchemaMetadataProvider",
     "LocalJsonMetadataProvider",
     "McpMetadataProvider",
     "field_names",

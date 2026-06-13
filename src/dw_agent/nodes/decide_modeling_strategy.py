@@ -179,7 +179,7 @@ def _application_tables(
         grain=requested_grain,
         top_k=1,
     )
-    if candidates and not candidates[0].get("missing_fields"):
+    if candidates and _application_candidate_usable(candidates[0]):
         return [_table_entry(candidates[0], "provider selected application report table by fields and grain")]
     return [
         _planned_entry(
@@ -190,6 +190,16 @@ def _application_tables(
             fields=report_fields,
         )
     ]
+
+
+def _application_candidate_usable(candidate: dict[str, Any]) -> bool:
+    ignored = {"dt", "update_time"}
+    missing = set(candidate.get("missing_fields", [])) - ignored
+    covered = set(candidate.get("covered_fields", [])) - ignored
+    if not missing:
+        return True
+    total = len(missing | covered)
+    return bool(total and covered and len(covered) / total >= 0.5)
 
 
 def _table_entry(table: dict[str, Any], reason: str) -> dict[str, Any]:

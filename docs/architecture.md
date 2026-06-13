@@ -84,7 +84,9 @@ flowchart LR
     A["Agent nodes"] --> P["MetadataProvider"]
     M["MCP Server tools"] --> P
     P --> L["LocalJsonMetadataProvider"]
+    P --> S["InformationSchemaMetadataProvider"]
     P --> C["McpMetadataProvider"]
+    S --> Q["DuckDB / PostgreSQL / MySQL information_schema"]
     C --> D["Future DataHub / OpenMetadata"]
     C --> H["Future Hive Metastore"]
     C --> I["Future InformationSchema"]

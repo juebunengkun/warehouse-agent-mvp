@@ -84,10 +84,14 @@ def topic_code(parsed: dict[str, Any]) -> str:
 def metric_columns(metrics: list[str]) -> list[tuple[str, str, str, str]]:
     columns: list[tuple[str, str, str, str]] = []
     for metric in metrics:
-        field, sql_type, comment = METRIC_COLUMNS.get(
-            metric,
-            (f"metric_{len(columns) + 1}", "DECIMAL(18,4)", f"{metric}，需补充口径"),
-        )
+        if metric in METRIC_COLUMNS:
+            field, sql_type, comment = METRIC_COLUMNS[metric]
+        elif _looks_like_field_name(metric):
+            field = metric
+            sql_type = "DECIMAL(18,2)" if any(token in metric for token in ["amount", "rate"]) else "BIGINT"
+            comment = f"{metric} from metadata field"
+        else:
+            field, sql_type, comment = (f"metric_{len(columns) + 1}", "DECIMAL(18,4)", f"{metric}，需补充口径")
         columns.append((metric, field, sql_type, comment))
     return columns
 
@@ -95,6 +99,11 @@ def metric_columns(metrics: list[str]) -> list[tuple[str, str, str, str]]:
 def dimension_columns(dimensions: list[str]) -> list[tuple[str, str, str, str]]:
     columns: list[tuple[str, str, str, str]] = []
     for dimension in dimensions:
+        semantic_fields = _semantic_dimension_fallback(dimension)
+        if semantic_fields:
+            for field, sql_type, comment in semantic_fields:
+                columns.append((dimension, field, sql_type, comment))
+            continue
         for field, sql_type, comment in DIMENSION_COLUMNS.get(
             dimension,
             [(f"dim_{len(columns) + 1}", "STRING", f"{dimension}，需补充维表映射")],
@@ -111,6 +120,24 @@ def metric_expression(metric: str) -> str:
     return METRIC_SQL.get(metric, f"SUM({metric})")
 
 
+def _looks_like_field_name(value: str) -> bool:
+    import re
+
+    return bool(re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", str(value)))
+
+
+def _semantic_dimension_fallback(dimension: str) -> list[tuple[str, str, str]] | None:
+    text = str(dimension)
+    lowered = text.lower()
+    if "类目" in text or "品类" in text or "category" in lowered:
+        return [
+            ("category_id", "STRING", "category id"),
+            ("category_level1_name", "STRING", "level 1 category name"),
+            ("category_level2_name", "STRING", "level 2 category name"),
+        ]
+    return None
+
+
 def table_names(parsed: dict[str, Any]) -> dict[str, str]:
     topic = topic_code(parsed)
     cycle_suffix = "di" if "日" in parsed.get("refresh_cycle", "") or "T+1" in parsed.get("refresh_cycle", "") else "df"
@@ -125,5 +152,5 @@ def table_names(parsed: dict[str, Any]) -> dict[str, str]:
 def markdown_table(headers: list[str], rows: list[list[str]]) -> str:
     header_line = "| " + " | ".join(headers) + " |"
     separator = "| " + " | ".join(["---"] * len(headers)) + " |"
-    body = ["| " + " | ".join(row) + " |" for row in rows]
+    body = ["| " + " | ".join("" if item is None else str(item) for item in row) + " |" for row in rows]
     return "\n".join([header_line, separator, *body])

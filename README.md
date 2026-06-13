@@ -68,9 +68,10 @@ flowchart TD
 The agent now reads warehouse metadata through `dw_agent.metadata.MetadataProvider`.
 The default provider is `LocalJsonMetadataProvider`, which treats
 `knowledge_base/table_metadata.json` as mock metadata for local demo and tests.
-Production can replace it with `McpMetadataProvider` or another implementation
-backed by Hive Metastore, DataHub, Glue, an internal metadata platform, or a
-metric platform.
+The project also includes `InformationSchemaMetadataProvider`, which can read
+real local DuckDB/PostgreSQL/MySQL table structures through `information_schema`.
+Production can later replace these providers with Hive Metastore, DataHub,
+OpenMetadata, Glue, an internal metadata platform, or a metric platform.
 
 Core modeling logic should not memorize fixture table names such as
 `dim_channel_df`, `dim_region_df`, or `dwd_sales_detail_di`. Those names are
@@ -83,8 +84,21 @@ Provider selection can be controlled with:
 
 ```powershell
 $env:WAREHOUSE_METADATA_PROVIDER="local_json"  # default local mock metadata
+$env:WAREHOUSE_METADATA_PROVIDER="information_schema"
 $env:WAREHOUSE_METADATA_PROVIDER="mcp"         # reserved MCP-backed provider
 ```
+
+DuckDB information schema demo:
+
+```powershell
+python demo/init_duckdb_demo.py
+$env:WAREHOUSE_METADATA_PROVIDER="information_schema"
+$env:WAREHOUSE_DB_TYPE="duckdb"
+$env:WAREHOUSE_DUCKDB_PATH="./demo/warehouse_demo.duckdb"
+```
+
+The DuckDB demo creates real local database tables; it is not a JSON mock. See
+[docs/information_schema_integration.md](docs/information_schema_integration.md).
 
 The current main flow is:
 

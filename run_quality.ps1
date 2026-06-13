@@ -7,7 +7,7 @@ if (-not (Test-Path $python)) {
     uv venv --clear --python 3.12 $venv
 }
 
-uv pip install --python $python black isort ruff mypy pre-commit pytest
+uv pip install --python $python -e . black isort ruff mypy pre-commit pytest
 
 $env:PYTHONPATH = (Join-Path $PSScriptRoot "src") + ";" + $PSScriptRoot
 
