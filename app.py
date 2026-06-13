@@ -40,21 +40,24 @@ def render_agent_result(result: dict) -> None:
                     st.markdown(f"**{doc['title']}** · `{doc['source']}` · score={doc['score']}")
                     st.write(doc["excerpt"])
 
-    tabs = st.tabs(["建模方案", "DDL", "ETL SQL", "DQC", "SQL 自检", "Agent 轨迹", "审阅", "完整报告"])
+    tabs = st.tabs(["建模方案", "表复用", "DDL", "ETL SQL", "DQC", "SQL 自检", "记忆", "Agent 轨迹", "审阅", "完整报告"])
 
     with tabs[0]:
         st.markdown(result.get("modeling_plan", ""))
 
     with tabs[1]:
-        st.code(result.get("ddl", ""), language="sql")
+        st.json(result.get("reuse_decision", {}), expanded=True)
 
     with tabs[2]:
-        st.code(result.get("etl_sql", ""), language="sql")
+        st.code(result.get("ddl", ""), language="sql")
 
     with tabs[3]:
-        st.markdown(result.get("dqc_rules", ""))
+        st.code(result.get("etl_sql", ""), language="sql")
 
     with tabs[4]:
+        st.markdown(result.get("dqc_rules", ""))
+
+    with tabs[5]:
         validation = result.get("sql_validation", {})
         if validation.get("passed"):
             st.success("SQL 自检通过")
@@ -62,7 +65,16 @@ def render_agent_result(result: dict) -> None:
             st.error("SQL 自检存在问题")
         st.json(validation, expanded=True)
 
-    with tabs[5]:
+    with tabs[6]:
+        if result.get("session_id"):
+            st.success(f"当前结果已保存为 session #{result['session_id']}")
+        memory_context = result.get("memory_context", [])
+        if memory_context:
+            st.json(memory_context, expanded=False)
+        else:
+            st.info("暂无相关历史会话。")
+
+    with tabs[7]:
         trace = result.get("tool_trace", [])
         if not trace:
             st.info("暂无工具调用轨迹。")
@@ -70,10 +82,10 @@ def render_agent_result(result: dict) -> None:
             with st.expander(f"{index}. {item.get('tool')}", expanded=False):
                 st.json(item, expanded=True)
 
-    with tabs[6]:
+    with tabs[8]:
         st.markdown(result.get("review", ""))
 
-    with tabs[7]:
+    with tabs[9]:
         st.download_button(
             "下载 Markdown 报告",
             data=result.get("final_report", ""),
@@ -99,7 +111,7 @@ with st.sidebar:
     else:
         st.warning("LLM 未启用：请在 `.env` 填写 `OPENAI_API_KEY`。")
     st.write("没有 API Key 时会使用规则模板；配置 `.env` 后需求解析会优先调用 LLM。")
-    st.write("当前流程：需求解析 -> 人工确认 -> 工具检索 -> SQL 生成 -> SQL 自检 -> 审阅。")
+    st.write("当前流程：需求解析 -> 人工确认 -> MCP 工具检索 -> 表复用判断 -> SQLGlot 自检 -> SQLite 记忆。")
 
 requirement = st.text_area("报表需求", value=DEFAULT_REQUIREMENT, height=160)
 

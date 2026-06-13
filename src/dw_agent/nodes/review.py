@@ -17,6 +17,9 @@ def review_outputs(state: AgentState) -> AgentState:
         f"当前粒度为：{parsed.get('granularity')}，与维度列表保持一致。",
         "DDL、ETL 和 DQC 均使用 `dt` 作为分区字段。",
     ]
+    reuse_decision = state.get("reuse_decision", {})
+    if reuse_decision:
+        findings.append(f"表复用决策：{reuse_decision.get('decision')}，{reuse_decision.get('reason')}")
     validation = state.get("sql_validation", {})
     if validation:
         status = "通过" if validation.get("passed") else "存在待处理问题"
@@ -46,6 +49,14 @@ def review_outputs(state: AgentState) -> AgentState:
         review += "\n".join(
             f"- {index}. `{item.get('tool')}` -> {item.get('output')}"
             for index, item in enumerate(tool_trace, start=1)
+        )
+
+    memory_context = state.get("memory_context", [])
+    if memory_context:
+        review += "\n\n### 历史会话参考\n\n"
+        review += "\n".join(
+            f"- Session #{item['id']}，score={item.get('score')}，需求：{item.get('requirement')}"
+            for item in memory_context
         )
 
     review += """

@@ -4,7 +4,7 @@
 
 > 自然语言报表需求 -> 指标/维度解析 -> 人工确认 -> 元数据/RAG 工具检索 -> ODS/DWD/DWS/ADS 建模方案 -> DDL/ETL SQL/DQC -> SQL 自检。
 
-当前项目仍是 MVP，但已经具备 Agent 雏形：LangGraph 状态机、工具调用、人工确认、SQL 校验和修正回路。
+当前项目仍是 MVP，但已经具备 Agent 雏形：LangGraph 子图状态机、MCP 工具调用、人工确认、表复用决策、SQL 结构校验、SQLite 记忆和修正回路。
 
 ## Screenshots
 
@@ -22,7 +22,10 @@
 - 生成 ODS、DWD、DWS、ADS 建模方案。
 - 生成 Hive 风格 DDL、ETL SQL、DQC 规则。
 - 记录工具调用轨迹，并对生成 SQL 做基础自检。
-- 暴露本地 MCP Server，提供元数据、指标口径、知识库检索和 SQL 校验工具。
+- 通过 MCP client 调用本地 MCP Server，提供元数据、指标口径、知识库检索和 SQL 校验工具。
+- 判断已有 DWS/ADS 表是否可复用，避免盲目新建汇总表。
+- 使用 `sqlglot` 做 SQL 解析和 GROUP BY 结构校验。
+- 使用 SQLite 保存历史会话，并在相似需求中提供历史参考。
 - 无 API Key 也能跑 demo；配置 API Key 后需求解析会优先调用 LLM。
 
 ## Architecture
@@ -34,19 +37,21 @@ flowchart TD
     C -->|Yes| D["Human confirmation / edit"]
     D --> E["Retrieve context"]
     C -->|No| E
-    E --> F["Knowledge search tool"]
-    E --> G["Metric lookup tool"]
-    E --> H["Metadata lookup tool"]
-    F --> I["Generate modeling plan"]
-    G --> I
-    H --> I
-    I --> J["Generate DDL"]
-    J --> K["Generate ETL SQL"]
-    K --> L["SQL validation tool"]
-    L -->|Failed| M["Rewrite SQL once"]
-    M --> L
-    L -->|Passed or max retry| N["Generate DQC"]
-    N --> O["Review and final report"]
+    E --> F["MCP knowledge search"]
+    E --> G["MCP metric lookup"]
+    E --> H["MCP metadata lookup"]
+    H --> I["Reuse decision"]
+    F --> J["Generate modeling plan"]
+    G --> J
+    I --> J
+    J --> K["Generate DDL"]
+    K --> L["Generate ETL SQL"]
+    L --> M["MCP SQL validation + sqlglot"]
+    M -->|Failed| N["Rewrite SQL once"]
+    N --> M
+    M -->|Passed or max retry| O["Generate DQC"]
+    O --> P["Review and final report"]
+    P --> Q["SQLite session memory"]
 ```
 
 更多设计说明见 [docs/architecture.md](docs/architecture.md)。
@@ -114,7 +119,7 @@ $env:PYTHONPATH="src;."
 python -m mcp_server.server
 ```
 
-暴露的 MCP Tools：
+LangGraph 主流程会通过 MCP client 调用这些工具。暴露的 MCP Tools：
 
 - `search_warehouse_docs_tool`
 - `get_metric_definition_tool`
@@ -141,6 +146,9 @@ python -m mcp_server.server
 - SQL 自检能发现缺分区、缺 GROUP BY 等问题。
 - MCP 工具可以返回指标、表结构、知识库检索和 SQL 校验结果。
 - 通过 MCP stdio client 启动本地 MCP Server 并调用 `health_check_tool`。
+- 主 Agent 流程会调用 MCP 工具并产出表复用决策。
+- SQLite 可以保存并召回相似历史会话。
+- `sqlglot` 可以发现 SELECT 非聚合字段缺少 GROUP BY 的结构问题。
 
 ## Project Structure
 
@@ -159,6 +167,8 @@ warehouse_agent_mvp/
   src/dw_agent/
     graph.py
     state.py
+    mcp_client.py
+    memory.py
     tools.py
     nodes/
   tests/
@@ -169,14 +179,13 @@ warehouse_agent_mvp/
 
 - 元数据是模拟 JSON，不是生产元数据平台。
 - RAG 是关键词检索，不是向量库。
-- SQL 自检是规则校验，不是真实 SQL dry-run。
+- SQL 自检包含规则校验和 `sqlglot` 结构校验，但还不是真实 SQL dry-run。
 - DQC 规则是模板生成，还没有接入真实 DQC 平台。
 - 生成 SQL 是初稿，真实落地前仍需人工 review。
 
 ## Roadmap
 
 - 接入真实 Hive/Glue/DataHub/元数据平台。
-- 将本地工具调用切换为 MCP client 调用 MCP Server。
 - 把 RAG 从关键词检索升级为向量检索。
 - 增加 SQL parser / dry-run 校验。
 - 增加调度 DAG 生成。

@@ -12,38 +12,54 @@
 - `retrievals`: RAG 命中文档。
 - `metric_context`: 指标口径工具返回结果。
 - `metadata_candidates`: 元数据候选表。
+- `reuse_decision`: 是否复用已有 DWS/ADS 表的决策。
+- `memory_context`: 从 SQLite 中召回的相似历史会话。
 - `ddl` / `etl_sql` / `dqc_rules`: 生成结果。
 - `sql_validation`: SQL 自检结果。
 - `tool_trace`: 工具调用轨迹。
+- `session_id`: 当前结果保存到 SQLite 后的会话 ID。
 
 ## LangGraph Flow
 
 ```mermaid
 flowchart TD
-    A["parse_requirement"] --> B["route_requirement"]
-    B -->|awaiting_user_confirmation| Z["END"]
-    B -->|continue_generation| C["retrieve_context"]
-    C --> D["generate_modeling"]
-    D --> E["generate_ddl"]
-    E --> F["generate_etl"]
-    F --> G["validate_sql"]
-    G -->|rewrite| H["rewrite_sql"]
-    H --> G
-    G -->|continue| I["generate_dqc"]
-    I --> J["review_outputs"]
-    J --> Z
+    A["Requirement subgraph"] --> B{"awaiting confirmation?"}
+    B -->|Yes| Z["END"]
+    B -->|No| C["Context subgraph"]
+    C --> D["Generation subgraph"]
+    D --> E["Validation subgraph"]
+    E --> F["generate_dqc"]
+    F --> G["review_outputs"]
+    G --> H["save_memory_context"]
+    H --> Z
+```
+
+## Subgraphs
+
+```text
+Requirement subgraph:
+  parse_requirement -> load_memory_context -> route_requirement
+
+Context subgraph:
+  retrieve_context -> decide_table_reuse
+
+Generation subgraph:
+  generate_modeling -> generate_ddl -> generate_etl
+
+Validation subgraph:
+  validate_sql -> rewrite_sql -> validate_sql
 ```
 
 ## Tool Layer
 
-本地工具定义在 `src/dw_agent/tools.py`：
+底层工具定义在 `src/dw_agent/tools.py`：
 
 - `knowledge_search_tool`
 - `metric_lookup_tool`
 - `metadata_lookup_tool`
 - `sql_validation_tool`
 
-MCP Server 定义在 `mcp_server/server.py`，复用 `mcp_server/tools/warehouse.py` 中的工具包装。
+MCP Server 定义在 `mcp_server/server.py`，复用 `mcp_server/tools/warehouse.py` 中的工具包装。LangGraph 主流程通过 `src/dw_agent/mcp_client.py` 以 stdio transport 调用 MCP tools。
 
 ## MCP Design
 
@@ -65,6 +81,25 @@ health_check_tool()
 - SQL 服务：SQL parser、SQL dry-run、字段存在性校验。
 - DQC 平台：规则注册、阈值配置、监控结果查询。
 
+## SQL Validation
+
+SQL 自检包含两层：
+
+- 规则检查：分区、INSERT 数量、指标字段、维度字段、粒度字段。
+- `sqlglot` 结构检查：DDL/ETL 解析、DWS GROUP BY 字段和 SELECT 非聚合字段对齐。
+
+当表复用决策为 `reuse_existing_dws` 时，校验器允许 ETL 只生成 DWD 和 ADS 两段 INSERT，并跳过 DWS GROUP BY 必检。
+
+## Memory
+
+SQLite 记忆定义在 `src/dw_agent/memory.py`，默认写入：
+
+```text
+data/sessions.db
+```
+
+保存内容包括原始需求、结构化解析结果、表复用决策、SQL 自检结果和最终报告。下一次解析相似需求时，会按业务主题、指标和维度重叠度召回最近历史会话。
+
 ## Why This Counts As An Agent MVP
 
 它不是简单 Prompt 模板，因为它具备：
@@ -75,5 +110,7 @@ health_check_tool()
 - 工具调用轨迹。
 - 自检与重写回路。
 - 可替换的 MCP 工具边界。
+- SQLite 会话记忆。
+- 表复用决策。
 
 它仍然不是生产级 Agent，因为工具还使用模拟数据，SQL 也没有真实执行。

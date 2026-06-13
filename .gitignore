@@ -5,3 +5,5 @@ __pycache__/
 .pytest_cache/
 streamlit.log
 streamlit.err.log
+data/*.db
+data/*.db-*

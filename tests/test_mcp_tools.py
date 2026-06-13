@@ -42,7 +42,7 @@ def test_mcp_validate_sql_tool(monkeypatch):
     from mcp_server.tools.warehouse import validate_sql
 
     result = run_agent("做一个销售日报，按天、地区、渠道统计销售额和订单数，T+1 刷新。")
-    validation = validate_sql(result["ddl"], result["etl_sql"], result["parsed"])
+    validation = validate_sql(result["ddl"], result["etl_sql"], {**result["parsed"], "reuse_decision": result["reuse_decision"]})
 
     assert validation["passed"] is True
 
@@ -75,3 +75,17 @@ def test_mcp_server_stdio_health_tool(monkeypatch):
                 assert payload["table_count"] >= 1
 
     asyncio.run(run_check())
+
+
+def test_agent_uses_mcp_tools_and_reuse_decision(monkeypatch):
+    monkeypatch.setenv("WAREHOUSE_AGENT_USE_LLM", "false")
+
+    from dw_agent.graph import run_agent
+
+    result = run_agent("做一个销售日报，按天、地区、渠道统计销售额、订单数、支付用户数和客单价，T+1刷新，近30天")
+    tool_names = [item["tool"] for item in result["tool_trace"]]
+
+    assert "mcp.search_warehouse_docs_tool" in tool_names
+    assert "mcp.validate_sql_tool" in tool_names
+    assert result["reuse_decision"]["decision"] == "reuse_existing_dws"
+    assert result["sql_validation"]["sqlglot"]["etl_statement_count"] >= 2

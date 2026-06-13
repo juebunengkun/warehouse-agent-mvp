@@ -25,4 +25,6 @@ def test_graph_generates_after_human_confirmation(monkeypatch):
     assert result["agent_decision"] == "continue_generation"
     assert result["sql_validation"]["passed"] is True
     assert result["tool_trace"]
+    assert result["reuse_decision"]["decision"] in {"reuse_existing_dws", "create_new_tables"}
+    assert result["session_id"] >= 1
     assert "CREATE TABLE" in result["ddl"]
