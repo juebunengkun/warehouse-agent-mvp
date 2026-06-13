@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 gh auth status | Out-Null
 
-$secretHits = rg -n "sk-[A-Za-z0-9]|OPENAI_API_KEY=.*sk-|ydata\.space" -g "!*.png" -g "!.env"
+$secretHits = rg -n "sk-[A-Za-z0-9]|OPENAI_API_KEY=.*sk-|ydata\.space" -g "!*.png" -g "!.env" -g "!publish_github.ps1"
 if ($LASTEXITCODE -eq 0) {
     Write-Error "Potential secret-like content found. Review the output above before publishing."
 }
