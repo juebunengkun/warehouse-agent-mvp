@@ -63,7 +63,7 @@ def test_sales_channel_daily_still_runs(monkeypatch):
     assert result["sql_validation"]["passed"] is True
     assert result["sql_style_review"]["passed"] is True
     assert "dim_channel_df" in result["final_report"]
-    assert "SQL 风格审查" in result["final_report"]
+    assert "SQL Style Review" in result["final_report"]
 
 
 def test_reuse_existing_dws_generates_ads_only(monkeypatch):

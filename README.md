@@ -121,6 +121,48 @@ parse_requirement -> retrieve_context -> decide_table_reuse
 -> generate_dqc -> review_outputs
 ```
 
+## From Workflow to Controlled Agent
+
+The first MVP behaved like a mostly fixed workflow:
+
+```text
+parse -> retrieve -> reuse -> modeling -> ddl -> etl -> validate -> review
+```
+
+The current version adds a controlled agent layer on top of that workflow:
+
+- `plan_task` builds an explicit Agent Plan before context retrieval.
+- `clarify_requirement` records missing metric or dimension semantics and marks
+  production-blocking questions for human review.
+- `tool_router` decides which metadata-provider tools to call and records tool
+  calls, results, and errors.
+- `sql_preview` can run a read-only DuckDB `SELECT` preview when the local
+  information_schema demo is configured.
+- `verify_outputs` summarizes SQL validation, SQL style review, SQL preview,
+  DQC status, rewrite needs, and human-review needs.
+- `rewrite_sql` is limited by `rewrite_count`, so the agent cannot loop forever.
+
+The controlled flow is:
+
+```text
+User Report Requirement
+-> Planner
+-> Clarification
+-> Tool Router
+-> MetadataProvider / RAG / SQL Review / SQL Preview
+-> Modeling Strategy
+-> DDL / ETL / DQC Generation
+-> Verification
+-> Rewrite or Human Review
+-> Final Report
+```
+
+This is still not a production autonomous agent. It does not execute production
+write SQL, deploy scheduler jobs, bypass human approval, or connect to real
+company data platforms. DuckDB preview is SELECT-only, and key metric semantics
+still require human review before production use. See
+[docs/agent_upgrade.md](docs/agent_upgrade.md).
+
 ## Quick Start
 
 在本目录执行：

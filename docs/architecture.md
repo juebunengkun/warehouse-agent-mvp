@@ -52,6 +52,38 @@ Validation subgraph:
   review_sql_style -> rewrite_sql -> validate_sql
 ```
 
+## Controlled Agent Flow
+
+The current graph adds a control layer around the original workflow:
+
+```text
+Requirement subgraph:
+  parse_requirement -> load_memory_context -> plan_task
+  -> clarify_requirement -> route_requirement
+
+Context subgraph:
+  tool_router -> retrieve_context -> decide_table_reuse
+
+Generation subgraph:
+  decide_modeling_strategy -> generate_modeling -> generate_ddl -> generate_etl
+
+Validation subgraph:
+  validate_sql -> review_sql_style -> sql_preview -> verify_outputs
+  -> rewrite_sql -> validate_sql
+
+Finalization:
+  generate_dqc -> verify_outputs_final -> review_outputs -> save_memory_context
+```
+
+`verify_outputs` is used twice. Inside the validation subgraph it decides whether
+SQL should be rewritten. After DQC generation it refreshes the final
+verification state so the final report can show SQL validation, SQL style,
+preview, DQC, modeling strategy, rewrite, and human-review status together.
+
+This keeps the project as a controlled agent MVP: the agent plans, routes tools,
+verifies, and retries within limits, but still requires human review for
+production-sensitive decisions.
+
 ## Metadata Provider Layer
 
 Warehouse metadata is accessed through `dw_agent.metadata.MetadataProvider`.

@@ -129,6 +129,26 @@ def _looks_like_field_name(value: str) -> bool:
 def _semantic_dimension_fallback(dimension: str) -> list[tuple[str, str, str]] | None:
     text = str(dimension)
     lowered = text.lower()
+    if lowered in {"date", "day", "stat_date", "dt"} or "date" in lowered:
+        return [("stat_date", "STRING", "stat date")]
+    if "channel" in lowered:
+        return [
+            ("channel_id", "STRING", "channel id"),
+            ("channel_name", "STRING", "channel name"),
+            ("channel_type", "STRING", "channel type"),
+        ]
+    if "region" in lowered:
+        return [
+            ("region_id", "STRING", "region id"),
+            ("province_name", "STRING", "province name"),
+            ("city_name", "STRING", "city name"),
+        ]
+    if "member" in lowered:
+        return [("member_level", "STRING", "member level")]
+    if "new/existing" in lowered or "new user" in lowered or "existing user" in lowered or "user type" in lowered:
+        return [("user_type", "STRING", "new or existing user type")]
+    if lowered in {"user", "user_id"}:
+        return [("user_id", "STRING", "user id")]
     if "类目" in text or "品类" in text or "category" in lowered:
         return [
             ("category_id", "STRING", "category id"),

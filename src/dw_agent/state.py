@@ -11,7 +11,12 @@ class AgentState(TypedDict, total=False):
     human_confirmed: bool
     parsed: dict[str, Any]
     agent_decision: str
+    agent_plan: dict[str, Any]
+    clarification: dict[str, Any]
     clarification_questions: list[str]
+    tool_calls: list[dict[str, Any]]
+    tool_results: dict[str, Any]
+    tool_errors: list[dict[str, Any]]
     tool_trace: list[dict[str, Any]]
     metric_context: list[dict[str, Any]]
     metadata_candidates: list[dict[str, Any]]
@@ -26,6 +31,9 @@ class AgentState(TypedDict, total=False):
     validation_attempts: int
     sql_validation: dict[str, Any]
     sql_style_review: dict[str, Any]
+    sql_preview: dict[str, Any]
+    verification_result: dict[str, Any]
+    rewrite_count: int
     dqc_rules: str
     review: str
     final_report: str

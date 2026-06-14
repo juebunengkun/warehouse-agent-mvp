@@ -5,7 +5,42 @@ import re
 from pathlib import Path
 from typing import Any
 
-FORBIDDEN_SQL = re.compile(r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|MERGE|CALL|COPY|ATTACH|DETACH)\b", re.I)
+FORBIDDEN_SQL = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|MERGE|CALL|COPY|ATTACH|DETACH|OVERWRITE|MSCK|REPAIR)\b",
+    re.I,
+)
+
+
+def run_duckdb_sql_preview(
+    sql: str,
+    db_path: str | Path | None = None,
+    limit: int = 100,
+    key_columns: list[str] | None = None,
+) -> dict[str, Any]:
+    try:
+        preview = preview_duckdb_select(sql, db_path=db_path, limit=limit)
+    except Exception as exc:
+        return {
+            "preview_available": True,
+            "passed": False,
+            "columns": [],
+            "rows": [],
+            "row_count": 0,
+            "null_rate_summary": {},
+            "warnings": [],
+            "errors": [f"{type(exc).__name__}: {exc}"],
+        }
+
+    warnings = _quality_warnings(preview["columns"], preview["rows"], key_columns or [])
+    if preview["row_count"] == 0:
+        warnings.append("Preview query returned zero rows.")
+    return {
+        "preview_available": True,
+        "passed": True,
+        **preview,
+        "warnings": warnings,
+        "errors": [],
+    }
 
 
 def preview_duckdb_select(sql: str, db_path: str | Path | None = None, limit: int = 100) -> dict[str, Any]:
@@ -27,7 +62,7 @@ def preview_duckdb_select(sql: str, db_path: str | Path | None = None, limit: in
         rows = result.fetchall()
     return {
         "columns": columns,
-        "rows": [dict(zip(columns, row, strict=False)) for row in rows],
+        "rows": [_serializable_row(columns, row) for row in rows],
         "row_count": len(rows),
         "null_rate_summary": _null_rate_summary(columns, rows),
     }
@@ -59,3 +94,45 @@ def _null_rate_summary(columns: list[str], rows: list[tuple[Any, ...]]) -> dict[
         null_count = sum(1 for row in rows if row[index] is None)
         summary[column] = null_count / len(rows)
     return summary
+
+
+def _serializable_row(columns: list[str], row: tuple[Any, ...]) -> dict[str, Any]:
+    return {column: _serializable_value(value) for column, value in zip(columns, row, strict=False)}
+
+
+def _serializable_value(value: Any) -> Any:
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    return str(value)
+
+
+def _quality_warnings(columns: list[str], rows: list[dict[str, Any]], key_columns: list[str]) -> list[str]:
+    warnings = []
+    numeric_columns = [
+        column
+        for column in columns
+        if any(token in column.lower() for token in ["amount", "cnt", "count", "num", "rate", "uv", "pv"])
+    ]
+    for column in numeric_columns:
+        if any(_is_negative(row.get(column)) for row in rows):
+            warnings.append(f"Column {column} contains negative values.")
+
+    usable_keys = [column for column in key_columns if column in columns]
+    if usable_keys:
+        seen = set()
+        duplicates = 0
+        for row in rows:
+            key = tuple(row.get(column) for column in usable_keys)
+            if key in seen:
+                duplicates += 1
+            seen.add(key)
+        if duplicates:
+            warnings.append(f"Preview found {duplicates} duplicate key rows for {', '.join(usable_keys)}.")
+    return warnings
+
+
+def _is_negative(value: Any) -> bool:
+    try:
+        return value is not None and float(value) < 0
+    except (TypeError, ValueError):
+        return False

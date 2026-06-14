@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from dw_agent.nodes.common import METRIC_COLUMNS, markdown_table
 from dw_agent.state import AgentState
 
@@ -8,67 +10,131 @@ def review_outputs(state: AgentState) -> AgentState:
     parsed = state["parsed"]
     metrics = parsed.get("metrics", [])
     dimensions = parsed.get("dimensions", [])
-    strategy = state.get("modeling_strategy", {})
-
     matched_metrics = [metric for metric in metrics if metric in METRIC_COLUMNS]
     missing_metrics = [metric for metric in metrics if metric not in METRIC_COLUMNS]
 
-    findings = [
-        f"已命中指标口径：{', '.join(matched_metrics) if matched_metrics else '无'}。",
-        f"需求解析来源：{parsed.get('parser_source', 'unknown')}。",
+    summary = [
+        "## Executive Review",
+        "",
+        f"- Requirement parser source: `{parsed.get('parser_source', 'unknown')}`.",
+        f"- Matched metric definitions: {', '.join(matched_metrics) if matched_metrics else 'none'}.",
+        f"- Missing metric definitions: {', '.join(missing_metrics) if missing_metrics else 'none'}.",
+        f"- Requested grain: {parsed.get('granularity', 'unknown')}.",
+        f"- Dimensions: {', '.join(dimensions) if dimensions else 'none'}.",
         _llm_finding(state.get("llm_diagnostics", {})),
-        f"当前粒度为：{parsed.get('granularity')}，与维度列表保持一致。",
-        "DDL、ETL 和 DQC 均使用 `dt` 作为分区字段。",
     ]
-    reuse_decision = state.get("reuse_decision", {})
-    if reuse_decision:
-        findings.append(f"表复用决策：{reuse_decision.get('decision')}，{reuse_decision.get('reason')}")
-    validation = state.get("sql_validation", {})
-    if validation:
-        status = "通过" if validation.get("passed") else "存在待处理问题"
-        findings.append(f"SQL 自检状态：{status}。")
-    style_review = state.get("sql_style_review", {})
-    if style_review:
-        status = "通过" if style_review.get("passed") else "存在风格问题"
-        findings.append(f"SQL 风格审查：{status}。")
-    if missing_metrics:
-        findings.append(f"以下指标未命中模拟口径库，需要人工确认：{', '.join(missing_metrics)}。")
-    if "日期" not in dimensions:
-        findings.append("需求未显式包含日期维度，建议确认报表是否需要趋势查询。")
 
-    review = "## 审阅结论\n\n" + "\n".join(f"- {finding}" for finding in findings)
-    review += _strategy_review(strategy)
-    review += _reuse_review(reuse_decision)
-    review += _sql_validation_review(validation)
-    review += _sql_style_review(style_review)
+    review = "\n".join(summary)
+    review += _agent_plan_review(state.get("agent_plan", {}))
+    review += _clarification_review(state.get("clarification", {}))
+    review += _tool_calls_review(
+        state.get("tool_calls", []),
+        state.get("tool_results", {}),
+        state.get("tool_errors", []),
+    )
+    review += _strategy_review(state.get("modeling_strategy", {}))
+    review += _reuse_review(state.get("reuse_decision", {}))
+    review += _sql_validation_review(state.get("sql_validation", {}))
+    review += _sql_style_review(state.get("sql_style_review", {}))
+    review += _sql_preview_review(state.get("sql_preview", {}))
+    review += _verification_review(state.get("verification_result", {}))
     review += _tool_trace_review(state.get("tool_trace", []))
     review += _memory_review(state.get("memory_context", []))
-    review += _production_gap_review()
+    review += _mvp_limitations_review()
 
     final_report = "\n\n".join(
         [
-            "# 数仓建模 Agent 输出报告",
-            state["modeling_plan"],
-            "## DDL\n\n```sql\n" + state["ddl"] + "\n```",
-            "## ETL SQL\n\n```sql\n" + state["etl_sql"] + "\n```",
-            state["dqc_rules"],
+            "# Data Warehouse Agent Output Report",
+            state.get("modeling_plan", ""),
+            "## DDL\n\n```sql\n" + state.get("ddl", "") + "\n```",
+            "## ETL SQL\n\n```sql\n" + state.get("etl_sql", "") + "\n```",
+            state.get("dqc_rules", ""),
             review,
         ]
     )
-
     return {**state, "review": review, "final_report": final_report}
 
 
-def _strategy_review(strategy: dict) -> str:
+def _llm_finding(diagnostics: dict[str, Any]) -> str:
+    if not diagnostics:
+        return "- LLM diagnostics: not recorded."
+    if diagnostics.get("status") == "success":
+        return f"- LLM diagnostics: requirement parsing succeeded with model `{diagnostics.get('model')}`."
+    if diagnostics.get("status") == "failed":
+        return (
+            "- LLM diagnostics: call failed and the agent fell back to rule parsing "
+            f"({diagnostics.get('error_type', 'unknown error')})."
+        )
+    if diagnostics.get("enabled") and diagnostics.get("has_api_key"):
+        return f"- LLM diagnostics: model `{diagnostics.get('model')}` configured but not used in this run."
+    return "- LLM diagnostics: LLM unavailable or disabled; rule parsing was used."
+
+
+def _agent_plan_review(plan: dict[str, Any]) -> str:
+    if not plan:
+        return ""
+    lines = [
+        "\n\n## Agent Plan",
+        "",
+        f"- Goal: {plan.get('goal', '')}",
+        f"- Need clarification: {plan.get('need_clarification', False)}",
+        f"- Tools needed: {', '.join(plan.get('tools_needed', [])) or 'none'}",
+        "- Steps:",
+    ]
+    for item in plan.get("steps", []):
+        lines.append(f"  - `{item.get('step')}`: {item.get('purpose')}")
+    if plan.get("risk_notes"):
+        lines.append("- Risk notes:")
+        lines.extend(f"  - {note}" for note in plan.get("risk_notes", []))
+    return "\n".join(lines)
+
+
+def _clarification_review(clarification: dict[str, Any]) -> str:
+    if not clarification:
+        return ""
+    lines = [
+        "\n\n## Clarification",
+        "",
+        f"- Need clarification: {clarification.get('need_clarification', False)}",
+        f"- Blocking for production: {clarification.get('blocking', False)}",
+        f"- Human review required: {clarification.get('human_review_required', False)}",
+        "- Questions:",
+    ]
+    questions = clarification.get("questions", [])
+    lines.extend(f"  - {question}" for question in questions) if questions else lines.append("  - none")
+    lines.append("- Default assumptions:")
+    assumptions = clarification.get("default_assumptions", [])
+    lines.extend(f"  - {assumption}" for assumption in assumptions) if assumptions else lines.append("  - none")
+    return "\n".join(lines)
+
+
+def _tool_calls_review(
+    tool_calls: list[dict[str, Any]], tool_results: dict[str, Any], tool_errors: list[dict[str, Any]]
+) -> str:
+    if not tool_calls and not tool_results and not tool_errors:
+        return ""
+    lines = ["\n\n## Tool Calls", ""]
+    if tool_calls:
+        lines.append("- Calls:")
+        lines.extend(f"  - `{item.get('tool')}` args={_compact_dict(item.get('arguments', {}))}" for item in tool_calls)
+    if tool_results:
+        lines.append("- Results:")
+        lines.extend(f"  - `{name}`: {_result_summary(value)}" for name, value in tool_results.items())
+    if tool_errors:
+        lines.append("- Errors:")
+        lines.extend(f"  - `{item.get('tool')}`: {item.get('error')}" for item in tool_errors)
+    return "\n".join(lines)
+
+
+def _strategy_review(strategy: dict[str, Any]) -> str:
     if not strategy:
         return ""
-    sections = ["\n\n### 建模策略摘要\n"]
-    sections.append(f"- 业务过程：{strategy.get('business_process', '待确认')}")
+    sections = ["\n\n## Modeling Strategy", "", f"- Business process: {strategy.get('business_process', 'unknown')}"]
     for title, key in [
-        ("事实表", "fact_tables"),
-        ("维度表", "dim_tables"),
-        ("汇总表", "summary_tables"),
-        ("应用表", "application_tables"),
+        ("Fact Tables", "fact_tables"),
+        ("Dimension Tables", "dim_tables"),
+        ("Summary Tables", "summary_tables"),
+        ("Application Tables", "application_tables"),
     ]:
         rows = [
             [
@@ -81,11 +147,13 @@ def _strategy_review(strategy: dict) -> str:
             ]
             for table in strategy.get(key, [])
         ]
-        sections.append(f"\n#### {title}\n\n")
-        sections.append(markdown_table(["表名", "层级", "类型", "粒度", "增全量", "原因"], rows) if rows else "暂无。")
+        sections.append(f"\n### {title}\n")
+        sections.append(
+            markdown_table(["Table", "Layer", "Type", "Grain", "Update Mode", "Reason"], rows) if rows else "None."
+        )
 
     joins = strategy.get("join_plan", [])
-    sections.append("\n#### Join 方案\n\n")
+    sections.append("\n### Join Plan\n")
     if joins:
         rows = [
             [
@@ -97,102 +165,131 @@ def _strategy_review(strategy: dict) -> str:
             ]
             for item in joins
         ]
-        sections.append(markdown_table(["左表", "右表", "Join 类型", "关联键", "分区条件"], rows))
+        sections.append(markdown_table(["Left Table", "Right Table", "Join Type", "Keys", "Partition"], rows))
     else:
-        sections.append("当前复用公共 DWS 或无需额外维表关联。")
+        sections.append("No additional dimension joins are required.")
 
-    sections.append("\n#### 依赖计划\n\n")
-    sections.append("\n".join(f"- {item}" for item in strategy.get("dependency_plan", [])) or "- 暂无依赖计划。")
-    return "".join(sections)
-
-
-def _llm_finding(diagnostics: dict) -> str:
-    if not diagnostics:
-        return "LLM 诊断：未记录。"
-    if diagnostics.get("status") == "success":
-        return f"LLM 诊断：解析成功，模型 {diagnostics.get('model')}。"
-    if diagnostics.get("status") == "failed":
-        return "LLM 诊断：已尝试调用但失败，" f"错误类型 {diagnostics.get('error_type')}，已自动回退到规则解析。"
-    if diagnostics.get("enabled") and diagnostics.get("has_api_key"):
-        return f"LLM 诊断：已配置模型 {diagnostics.get('model')}，但当前未使用 LLM。"
-    return "LLM 诊断：未启用或缺少 API Key，使用规则解析。"
+    sections.append("\n### Dependency Plan\n")
+    dependencies = strategy.get("dependency_plan", [])
+    sections.append(
+        "\n".join(f"- {item}" for item in dependencies) if dependencies else "- No dependency plan generated."
+    )
+    return "\n".join(sections)
 
 
-def _reuse_review(reuse_decision: dict) -> str:
+def _reuse_review(reuse_decision: dict[str, Any]) -> str:
     if not reuse_decision:
         return ""
-    risks = reuse_decision.get("risk_notes", [])
+    risk_notes = reuse_decision.get("risk_notes", [])
     return f"""
 
-### 表复用决策
-
-- 是否复用：{reuse_decision.get("decision")}
-- 复用表：{reuse_decision.get("table") or "暂无"}
-- 原因：{reuse_decision.get("reason")}
-- 硬性检查：`{reuse_decision.get("hard_checks", {})}`
-- 风险：{", ".join(risks) if risks else "暂无阻断风险。"}
+## Table Reuse Decision
+- Decision: {reuse_decision.get("decision")}
+- Reused table: {reuse_decision.get("table") or "none"}
+- Reason: {reuse_decision.get("reason")}
+- Hard checks: `{reuse_decision.get("hard_checks", {})}`
+- Risks: {", ".join(risk_notes) if risk_notes else "none"}
 """
 
 
-def _sql_validation_review(validation: dict) -> str:
+def _sql_validation_review(validation: dict[str, Any]) -> str:
     if not validation:
         return ""
-    errors = validation.get("errors", [])
-    warnings = validation.get("warnings", [])
-    review = "\n### SQL 自检\n\n"
-    if errors:
-        review += "\n".join(f"- 错误：{item}" for item in errors) + "\n"
-    if warnings:
-        review += "\n".join(f"- 提醒：{item}" for item in warnings) + "\n"
-    if not errors and not warnings:
-        review += "- 未发现阻断问题。\n"
-    return review
+    lines = ["\n\n## SQL Validation", "", f"- Passed: {validation.get('passed', False)}"]
+    lines.extend(f"- Error: {item}" for item in validation.get("errors", []))
+    lines.extend(f"- Warning: {item}" for item in validation.get("warnings", []))
+    if len(lines) == 3:
+        lines.append("- No blocking issue detected.")
+    return "\n".join(lines)
 
 
-def _sql_style_review(style_review: dict) -> str:
+def _sql_style_review(style_review: dict[str, Any]) -> str:
     if not style_review:
         return ""
+    lines = ["\n\n## SQL Style Review", "", f"- Passed: {style_review.get('passed', False)}"]
     issues = style_review.get("issues", [])
-    review = "\n### SQL 风格审查\n\n"
-    review += f"- 是否通过：{'是' if style_review.get('passed') else '否'}\n"
-    review += "- 检查项：SELECT *、CTE 层数、CTE 命名、JOIN、DIM 分区、GROUP BY、除零保护、INSERT 分区。\n"
     if issues:
-        review += "\n".join(f"- {item['level']} `{item['rule']}`：{item['message']}" for item in issues) + "\n"
+        lines.extend(f"- {item.get('level')} `{item.get('rule')}`: {item.get('message')}" for item in issues)
     else:
-        review += "- 未发现 SQL 风格问题。\n"
-    return review
+        lines.append("- No SQL style issue detected.")
+    return "\n".join(lines)
 
 
-def _tool_trace_review(tool_trace: list[dict]) -> str:
+def _sql_preview_review(preview: dict[str, Any]) -> str:
+    if not preview:
+        return ""
+    lines = [
+        "\n\n## SQL Preview",
+        "",
+        f"- Preview available: {preview.get('preview_available', False)}",
+        f"- Passed: {preview.get('passed', False)}",
+        f"- Row count: {preview.get('row_count', 0)}",
+    ]
+    if preview.get("reason"):
+        lines.append(f"- Reason: {preview.get('reason')}")
+    lines.extend(f"- Warning: {item}" for item in preview.get("warnings", []))
+    lines.extend(f"- Error: {item}" for item in preview.get("errors", []))
+    return "\n".join(lines)
+
+
+def _verification_review(verification: dict[str, Any]) -> str:
+    if not verification:
+        return ""
+    lines = [
+        "\n\n## Verification Result",
+        "",
+        f"- Passed: {verification.get('passed', False)}",
+        f"- Need rewrite: {verification.get('need_rewrite', False)}",
+        f"- Need human review: {verification.get('need_human_review', False)}",
+        f"- Suggested next action: {verification.get('suggested_next_action', '')}",
+    ]
+    lines.extend(f"- Blocking issue: {item}" for item in verification.get("blocking_issues", []))
+    lines.extend(f"- Warning: {item}" for item in verification.get("warnings", []))
+    return "\n".join(lines)
+
+
+def _tool_trace_review(tool_trace: list[dict[str, Any]]) -> str:
     if not tool_trace:
         return ""
-    review = "\n### 工具调用轨迹\n\n"
-    review += "\n".join(
+    lines = ["\n\n## Agent Trace", ""]
+    lines.extend(
         f"- {index}. `{item.get('tool')}` -> {item.get('output')}" for index, item in enumerate(tool_trace, start=1)
     )
-    return review
+    return "\n".join(lines)
 
 
-def _memory_review(memory_context: list[dict]) -> str:
+def _memory_review(memory_context: list[dict[str, Any]]) -> str:
     if not memory_context:
         return ""
-    review = "\n\n### 历史会话参考\n\n"
-    review += "\n".join(
-        f"- Session #{item['id']}，score={item.get('score')}，需求：{item.get('requirement')}"
+    lines = ["\n\n## Memory Context", ""]
+    lines.extend(
+        f"- Session #{item['id']}: score={item.get('score')}, requirement={item.get('requirement')}"
         for item in memory_context
     )
-    return review
+    return "\n".join(lines)
 
 
-def _production_gap_review() -> str:
+def _mvp_limitations_review() -> str:
     return """
 
-### 当前 MVP 与生产差距
-
-- 元数据仍是本地 JSON，还没有接 DataHub/Hive Metastore/Glue/内部元数据平台。
-- 指标平台仍是本地文件模拟，还没有指标版本、审批和适用粒度约束。
-- SQL 校验还是 `sqlglot` + 规则，还没有真实 Hive/Spark dry-run 和 explain。
-- 当前只生成 SQL，还没有生成 Airflow/DolphinScheduler 等调度 DAG。
-- DQC 仍是模板，还没有接入生产 DQC 平台。
-- 生成结果仍需人工 review 和 CR 流程。
+## MVP Limitations
+- This is a Controlled Data Warehouse Agent MVP, not a production autonomous agent.
+- It does not execute production write SQL or deploy scheduler jobs.
+- DuckDB SQL preview is read-only and SELECT-only.
+- Metric platform, permission platform, approval workflow, lineage, and production dry-run are not connected yet.
+- Key metric semantics and reusable-table decisions still require human review before production use.
 """
+
+
+def _compact_dict(value: dict[str, Any]) -> str:
+    return ", ".join(f"{key}={val}" for key, val in value.items())
+
+
+def _result_summary(value: Any) -> str:
+    if isinstance(value, list):
+        names = [str(item.get("name")) for item in value[:3] if isinstance(item, dict) and item.get("name")]
+        suffix = f" ({', '.join(names)})" if names else ""
+        return f"{len(value)} result(s){suffix}"
+    if isinstance(value, dict):
+        return f"{len(value)} key(s)"
+    return str(value)
