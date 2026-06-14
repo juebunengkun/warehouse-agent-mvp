@@ -1,0 +1,19 @@
+datahub_mcp:
+  enabled: false
+  gms_url: "http://localhost:8080"
+  token_env: "DATAHUB_GMS_TOKEN"
+  command: "uvx"
+  package: "mcp-server-datahub@latest"
+  timeout_seconds: 10
+
+warehouse_agent:
+  metadata_provider: "datahub_mcp"
+  default_query: "warehouse dataset"
+  default_limit: 10
+
+tools:
+  search_assets: true
+  get_dataset_schema: true
+  get_lineage: true
+  get_ownership: true
+  get_tags_and_terms: true

@@ -32,6 +32,11 @@ def review_outputs(state: AgentState) -> AgentState:
         state.get("tool_results", {}),
         state.get("tool_errors", []),
     )
+    review += _datahub_context_review(
+        state.get("tool_calls", []),
+        state.get("tool_results", {}),
+        state.get("tool_errors", []),
+    )
     review += _strategy_review(state.get("modeling_strategy", {}))
     review += _reuse_review(state.get("reuse_decision", {}))
     review += _sql_validation_review(state.get("sql_validation", {}))
@@ -77,6 +82,7 @@ def _agent_plan_review(plan: dict[str, Any]) -> str:
         "\n\n## Agent Plan",
         "",
         f"- Goal: {plan.get('goal', '')}",
+        f"- Metadata provider: `{plan.get('metadata_provider', 'unknown')}`",
         f"- Need clarification: {plan.get('need_clarification', False)}",
         f"- Tools needed: {', '.join(plan.get('tools_needed', [])) or 'none'}",
         "- Steps:",
@@ -123,6 +129,84 @@ def _tool_calls_review(
     if tool_errors:
         lines.append("- Errors:")
         lines.extend(f"  - `{item.get('tool')}`: {item.get('error')}" for item in tool_errors)
+    return "\n".join(lines)
+
+
+def _datahub_context_review(
+    tool_calls: list[dict[str, Any]], tool_results: dict[str, Any], tool_errors: list[dict[str, Any]]
+) -> str:
+    datahub_calls = [item for item in tool_calls if "datahub" in str(item.get("tool", "")).lower()]
+    search_result = tool_results.get("search_datahub_assets", {})
+    contexts = tool_results.get("datahub_dataset_context", [])
+    datahub_errors = [item for item in tool_errors if "datahub" in str(item.get("tool", "")).lower()]
+
+    lines = ["\n\n## DataHub MCP Context", ""]
+    if not datahub_calls and not search_result and not contexts:
+        lines.extend(
+            [
+                "- Status: skipped.",
+                "- Reason: DataHub MCP was not requested; keep `DATAHUB_MCP_ENABLED=false` or use another metadata provider.",
+            ]
+        )
+        return "\n".join(lines)
+
+    if isinstance(search_result, dict) and search_result.get("skipped"):
+        reason = "; ".join(str(item) for item in search_result.get("warnings", [])) or "DataHub MCP is disabled."
+        lines.extend(["- Status: skipped.", f"- Reason: {_safe_text(reason)}"])
+        return "\n".join(lines)
+
+    status = "queried" if not datahub_errors else "queried_with_errors"
+    lines.append(f"- Status: {status}.")
+    if datahub_calls:
+        called_tools = ", ".join(f"`{item.get('tool')}`" for item in datahub_calls)
+        lines.append(f"- Called tools: {called_tools}.")
+
+    assets = search_result.get("assets", []) if isinstance(search_result, dict) else []
+    if assets:
+        rows = [
+            [
+                _safe_text(asset.get("name", "")),
+                _safe_text(asset.get("platform", "")),
+                _safe_text(asset.get("owner", "")),
+                ", ".join(asset.get("tags", [])[:3]),
+                _short_urn(str(asset.get("urn", ""))),
+            ]
+            for asset in assets[:5]
+        ]
+        lines.append("\n### Matched Assets\n")
+        lines.append(markdown_table(["Asset", "Platform", "Owner", "Tags", "URN"], rows))
+    else:
+        lines.append("- Matched assets: none.")
+
+    if contexts:
+        rows = []
+        for item in contexts:
+            asset = item.get("asset", {})
+            schema = item.get("schema", {})
+            lineage = item.get("lineage", {})
+            ownership = item.get("ownership", {})
+            tags_terms = item.get("tags_and_terms", {})
+            owners = ", ".join(owner.get("name", "") for owner in ownership.get("owners", []) if owner.get("name"))
+            tags = ", ".join([*tags_terms.get("tags", [])[:2], *tags_terms.get("glossary_terms", [])[:2]])
+            rows.append(
+                [
+                    _safe_text(asset.get("name", "")),
+                    str(len(schema.get("fields", []))),
+                    _safe_text(owners or asset.get("owner", "")),
+                    _safe_text(tags),
+                    str(len(lineage.get("lineage", []))),
+                ]
+            )
+        lines.append("\n### Dataset Details\n")
+        lines.append(markdown_table(["Asset", "Fields", "Owner", "Tags / Terms", "Upstream Count"], rows))
+
+    if datahub_errors:
+        lines.append("- DataHub tool errors:")
+        lines.extend(f"  - `{item.get('tool')}`: {_safe_text(str(item.get('error')))}" for item in datahub_errors)
+
+    lines.append(
+        "- Modeling impact: DataHub metadata can improve table discovery, owner/trust signals, schema checks, and lineage context; metric semantics and final reuse decisions still need validation."
+    )
     return "\n".join(lines)
 
 
@@ -293,3 +377,13 @@ def _result_summary(value: Any) -> str:
     if isinstance(value, dict):
         return f"{len(value)} key(s)"
     return str(value)
+
+
+def _short_urn(value: str) -> str:
+    if len(value) <= 72:
+        return _safe_text(value)
+    return _safe_text(value[:69] + "...")
+
+
+def _safe_text(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ").replace("\r", " ")

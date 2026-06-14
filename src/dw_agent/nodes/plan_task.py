@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from dw_agent.nodes.common import DIMENSION_COLUMNS, METRIC_COLUMNS
@@ -15,9 +16,36 @@ def plan_task(state: AgentState) -> AgentState:
     ambiguity_notes = _ambiguity_notes(parsed, state.get("requirement", ""))
     need_clarification = bool(missing_metrics or missing_dimensions or ambiguity_notes)
 
+    tools_needed = [
+        "search_tables",
+        "search_dimensions",
+        "search_facts",
+        "search_summaries",
+        "review_sql_style",
+        "sql_preview",
+    ]
+    datahub_needed = _datahub_needed(state.get("requirement", ""), parsed)
+    if datahub_needed:
+        tools_needed.extend(
+            [
+                "search_datahub_assets",
+                "get_datahub_dataset_schema",
+                "get_datahub_lineage",
+                "get_datahub_ownership",
+                "get_datahub_tags_and_terms",
+            ]
+        )
+
+    risk_notes = _risk_notes(missing_metrics, missing_dimensions, ambiguity_notes)
+    if datahub_needed:
+        risk_notes.append(
+            "DataHub MCP provides metadata context only; metric semantics still require metric platform or human confirmation."
+        )
+
     plan: dict[str, Any] = {
         "goal": _goal(parsed),
         "need_clarification": need_clarification,
+        "metadata_provider": os.getenv("WAREHOUSE_METADATA_PROVIDER", "local_json"),
         "clarification_questions": _questions(missing_metrics, missing_dimensions, ambiguity_notes),
         "steps": [
             {
@@ -35,15 +63,8 @@ def plan_task(state: AgentState) -> AgentState:
             },
             {"step": "verify_outputs", "purpose": "Summarize validation, preview, DQC, and human-review risks."},
         ],
-        "tools_needed": [
-            "search_tables",
-            "search_dimensions",
-            "search_facts",
-            "search_summaries",
-            "review_sql_style",
-            "sql_preview",
-        ],
-        "risk_notes": _risk_notes(missing_metrics, missing_dimensions, ambiguity_notes),
+        "tools_needed": tools_needed,
+        "risk_notes": risk_notes,
     }
 
     trace = {
@@ -108,3 +129,22 @@ def _ambiguity_notes(parsed: dict, requirement: str) -> list[str]:
 def _contains_any(text: str, keywords: list[str]) -> bool:
     lowered = text.lower()
     return any(keyword.lower() in lowered for keyword in keywords)
+
+
+def _datahub_needed(requirement: str, parsed: dict) -> bool:
+    if os.getenv("WAREHOUSE_METADATA_PROVIDER", "").lower() in {"datahub_mcp", "datahub"}:
+        return True
+    text = f"{requirement} {parsed.get('business_theme', '')}".lower()
+    keywords = [
+        "datahub",
+        "data map",
+        "metadata",
+        "lineage",
+        "owner",
+        "schema",
+        "trusted table",
+        "certified table",
+        "reusable dws",
+        "existing table",
+    ]
+    return any(keyword in text for keyword in keywords)

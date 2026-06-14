@@ -47,6 +47,10 @@ def get_metadata_provider(config: dict[str, Any] | None = None) -> MetadataProvi
         from dw_agent.metadata.information_schema_provider import InformationSchemaMetadataProvider
 
         return InformationSchemaMetadataProvider(config=config)
+    if provider_type in {"datahub_mcp", "datahub"}:
+        from dw_agent.metadata.datahub_mcp_provider import DataHubMcpProvider
+
+        return DataHubMcpProvider(config=config)
     if provider_type in {"mcp", "mcp_metadata"}:
         from dw_agent.metadata.mcp_provider import McpMetadataProvider
 

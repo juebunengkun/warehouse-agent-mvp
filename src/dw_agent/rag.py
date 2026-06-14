@@ -86,7 +86,7 @@ def _split_json(path: Path) -> list[DocumentChunk]:
             chunks.append(
                 DocumentChunk(
                     id=f"{path.name}:{name}",
-                    title=f"琛ㄧ粨鏋?{name}",
+                    title=f"Table schema {name}",
                     source=path.name,
                     text=text,
                 )

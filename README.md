@@ -98,6 +98,7 @@ Provider selection can be controlled with:
 $env:WAREHOUSE_METADATA_PROVIDER="local_json"  # default local mock metadata
 $env:WAREHOUSE_METADATA_PROVIDER="information_schema"
 $env:WAREHOUSE_METADATA_PROVIDER="mcp"         # reserved MCP-backed provider
+$env:WAREHOUSE_METADATA_PROVIDER="datahub_mcp" # optional DataHub MCP provider
 ```
 
 DuckDB information schema demo:
@@ -111,6 +112,40 @@ $env:WAREHOUSE_DUCKDB_PATH="./demo/warehouse_demo.duckdb"
 
 The DuckDB demo creates real local database tables; it is not a JSON mock. See
 [docs/information_schema_integration.md](docs/information_schema_integration.md).
+
+### Optional DataHub MCP Provider
+
+The project now includes an optional `DataHubMcpProvider`. It treats DataHub as
+an external data map / metadata platform and can query DataHub MCP for asset
+search, dataset schema, lineage, ownership, tags, glossary terms, domain, and
+data product context.
+
+It is disabled by default, so local JSON and `information_schema` runs still work
+without DataHub:
+
+```powershell
+$env:WAREHOUSE_METADATA_PROVIDER="datahub_mcp"
+$env:DATAHUB_MCP_ENABLED="true"
+$env:DATAHUB_GMS_URL="http://localhost:8080"
+$env:DATAHUB_GMS_TOKEN="<your-datahub-token>"
+$env:DATAHUB_MCP_COMMAND="uvx"
+$env:DATAHUB_MCP_PACKAGE="mcp-server-datahub@latest"
+```
+
+When enabled, the agent planner can request:
+
+- `search_datahub_assets`
+- `get_datahub_dataset_schema`
+- `get_datahub_lineage`
+- `get_datahub_ownership`
+- `get_datahub_tags_and_terms`
+
+The wrapper maps those agent-facing tool names to common DataHub MCP tools such
+as `search`, `get_entities`, `get_lineage`, and `list_schema_fields`. Tokens are
+read from environment variables only and are redacted from structured errors.
+
+See [docs/datahub_mcp_integration.md](docs/datahub_mcp_integration.md) and
+[config/datahub_mcp.example.yml](config/datahub_mcp.example.yml).
 
 The current main flow is:
 
@@ -307,8 +342,12 @@ warehouse_agent_mvp/
     state.py
     mcp_client.py
     memory.py
-    tools.py
+    tools/
+      __init__.py
+      datahub_mcp_client.py
+      datahub_mcp_tool.py
     metadata/
+      datahub_mcp_provider.py
     nodes/
   tests/
   docs/
