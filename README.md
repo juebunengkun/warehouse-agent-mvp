@@ -1,48 +1,73 @@
 # Warehouse Agent MVP
 
 **Warehouse Agent MVP** is a Report-to-Warehouse Agent for data development
-workflows. It turns natural-language reporting requirements into structured
-metrics and dimensions, reusable table decisions, ODS/DWD/DWS/ADS modeling
-plans, DDL, ETL SQL, DQC rules, and SQL validation reports.
+workflows. It turns a natural-language reporting requirement into a structured
+warehouse delivery package: requirement parsing, metadata retrieval, table reuse
+decision, ODS/DWD/DWS/ADS modeling strategy, DDL, ETL SQL, DQC rules, SQL
+validation, SQL style review, and a final review report.
 
-这个项目不是通用聊天分析助手，而是一个面向数仓开发交付链路的 Agent MVP。它用
-LangGraph 编排 requirement/context/generation/validation 子图，通过 MCP、RAG 和
-MetadataProvider 获取指标口径与表结构，并支持本地 JSON mock 元数据以及
-DuckDB/PostgreSQL/MySQL `information_schema` 真实元数据。
+This project is not a generic chat assistant. It is a controlled data warehouse
+agent prototype built around a LangGraph state machine, metadata-provider tools,
+RAG context retrieval, MCP tool calls, SQL structure validation, SQLite memory,
+and a bounded rewrite loop.
 
-> Report requirement -> requirement parsing -> human confirmation -> metadata/RAG
-> retrieval -> table reuse decision -> modeling strategy -> DDL/ETL SQL/DQC ->
-> sqlglot validation -> SQL style review.
+```text
+Report requirement
+-> requirement parsing
+-> human confirmation
+-> metadata / RAG / MCP retrieval
+-> table reuse decision
+-> modeling strategy
+-> DDL / ETL SQL / DQC generation
+-> sqlglot validation
+-> SQL style review
+-> SQL preview / verification
+-> final report
+```
 
-当前项目仍是 MVP，但已经具备 Agent 雏形：LangGraph 子图状态机、MCP 工具调用、
-人工确认、表复用决策、建模策略决策、SQL 结构校验、SQL 风格审查、SQLite 记忆和
-修正回路。
+## Current Status
+
+- Controlled LangGraph workflow with requirement, context, generation, and
+  validation stages.
+- Local JSON metadata provider for deterministic demos and tests.
+- Real `information_schema` metadata provider for local DuckDB, PostgreSQL, and
+  MySQL schemas.
+- Optional DataHub MCP provider for asset search, schema, lineage, ownership,
+  tags, glossary terms, domains, and data products.
+- Local MCP server and MCP client path for warehouse tools.
+- Table reuse decision node that checks field coverage, grain, business process,
+  partition availability, certification, and SLA context.
+- SQL generation plus `sqlglot` validation and SQL style review.
+- SQLite memory for historical sessions.
+- Streamlit UI for MVP interaction.
+- Quality gate currently passes with `64` tests through `run_quality.ps1`.
 
 ## Screenshots
 
-复杂渠道经营日报测试截图：
+Complex channel operation daily report:
 
 ![Complex Modeling Strategy](docs/screenshots/complex-modeling-strategy.png)
 
 ![SQL Style Review](docs/screenshots/complex-sql-style-review.png)
 
-轻量 SVG 界面预览和真实 PNG 截图生成方式见 [docs/screenshots.md](docs/screenshots.md)。
+More screenshot notes are available in [docs/screenshots.md](docs/screenshots.md).
 
-## Features
+## What The Agent Produces
 
-- 解析自然语言报表需求，抽取指标、维度、粒度、刷新周期。
-- 在生成前让用户确认或修改结构化需求。
-- 检索本地模拟知识库，包括数仓规范、指标口径、历史表结构、DQC 模板。
-- 生成 ODS、DWD、DWS、ADS 建模方案。
-- 生成 Hive 风格 DDL、ETL SQL、DQC 规则。
-- 记录工具调用轨迹，并对生成 SQL 做基础自检。
-- 通过 MCP client 调用本地 MCP Server，提供元数据、指标口径、知识库检索和 SQL 校验工具。
-- 判断已有 DWS/ADS 表是否可复用，避免盲目新建汇总表。
-- 生成建模策略，明确业务过程、事实表、维度表、汇总表、应用表、join_plan 和 dependency_plan。
-- 使用 `sqlglot` 做 SQL 解析和 GROUP BY 结构校验。
-- 做 SQL 风格审查，覆盖 SELECT *、CTE 层数、JOIN、DIM 分区、除零保护和 INSERT 分区。
-- 使用 SQLite 保存历史会话，并在相似需求中提供历史参考。
-- 无 API Key 也能跑 demo；配置 API Key 后需求解析会优先调用 LLM。
+Given a reporting requirement, the agent can generate:
+
+- structured metrics, dimensions, grain, refresh cycle, and assumptions,
+- candidate table discovery results,
+- existing DWS/ADS table reuse decision,
+- DIM, fact, summary, and application table modeling strategy,
+- join plan and dependency plan,
+- Hive-style DDL,
+- ETL SQL for DWD/DWS/ADS layers,
+- DQC rules and sample checks,
+- SQL validation output,
+- SQL style review output,
+- DataHub MCP context when enabled,
+- final Markdown report for review.
 
 ## Architecture
 
@@ -51,57 +76,65 @@ flowchart TD
     A["User report requirement"] --> B["Parse requirement"]
     B --> C{"Need confirmation?"}
     C -->|Yes| D["Human confirmation / edit"]
-    D --> E["Retrieve context"]
-    C -->|No| E
-    E --> F["MCP knowledge search"]
-    E --> G["MCP metric lookup"]
-    E --> H["MCP metadata lookup via MetadataProvider"]
-    H --> I["Reuse decision"]
-    I --> J["Decide modeling strategy via MetadataProvider"]
-    F --> J
-    G --> J
-    J --> K["Generate modeling plan"]
-    K --> L["Generate DDL"]
-    L --> M["Generate ETL SQL"]
-    M --> N["MCP SQL validation + sqlglot"]
-    N -->|Failed| O["Rewrite SQL once"]
-    O --> N
-    N --> P["SQL style review"]
-    P -->|Error| O
-    P -->|Passed or warn only| Q["Generate DQC"]
-    Q --> R["Review and final report"]
-    R --> S["SQLite session memory"]
+    C -->|No| E["Planner"]
+    D --> E
+    E --> F["Clarification node"]
+    F --> G["Tool router"]
+    G --> H["RAG context"]
+    G --> I["MetadataProvider"]
+    G --> J["Optional DataHub MCP tools"]
+    H --> K["Table reuse decision"]
+    I --> K
+    J --> K
+    K --> L["Modeling strategy"]
+    L --> M["Generate modeling plan"]
+    M --> N["Generate DDL"]
+    N --> O["Generate ETL SQL"]
+    O --> P["SQL validation with sqlglot"]
+    P -->|Failed| Q["Rewrite SQL once"]
+    Q --> P
+    P --> R["SQL style review"]
+    R -->|Error| Q
+    R --> S["DQC generation"]
+    S --> T["SQL preview / verification"]
+    T --> U["Final report"]
+    U --> V["SQLite session memory"]
 ```
 
-更多设计说明见 [docs/architecture.md](docs/architecture.md)。
+More design details are available in [docs/architecture.md](docs/architecture.md)
+and [docs/agent_upgrade.md](docs/agent_upgrade.md).
 
-## Metadata Provider
+## Metadata Providers
 
-The agent now reads warehouse metadata through `dw_agent.metadata.MetadataProvider`.
-The default provider is `LocalJsonMetadataProvider`, which treats
-`knowledge_base/table_metadata.json` as mock metadata for local demo and tests.
-The project also includes `InformationSchemaMetadataProvider`, which can read
-real local DuckDB/PostgreSQL/MySQL table structures through `information_schema`.
-Production can later replace these providers with Hive Metastore, DataHub,
-OpenMetadata, Glue, an internal metadata platform, or a metric platform.
+The modeling logic reads metadata through `dw_agent.metadata.MetadataProvider`.
+It does not hardcode demo table names as production logic. Table selection uses
+metadata attributes such as:
 
-Core modeling logic should not memorize fixture table names such as
-`dim_channel_df`, `dim_region_df`, or `dwd_sales_detail_di`. Those names are
-demo fixtures only. Table selection is based on metadata attributes such as
-`layer`, `table_type`, `business_process`, `grain`, `primary_keys`,
-`foreign_keys`, `fields`, `update_mode`, `partition_key`, `certified`, and
-`sla_time`.
+- `layer`
+- `table_type`
+- `business_process`
+- `grain`
+- `primary_keys`
+- `foreign_keys`
+- `fields`
+- `update_mode`
+- `partition_key`
+- `owner`
+- `sla_time`
+- `certified`
 
-Provider selection can be controlled with:
+Supported provider modes:
 
 ```powershell
-$env:WAREHOUSE_METADATA_PROVIDER="local_json"  # default local mock metadata
-$env:WAREHOUSE_METADATA_PROVIDER="information_schema"
-$env:WAREHOUSE_METADATA_PROVIDER="mcp"         # reserved MCP-backed provider
-$env:WAREHOUSE_METADATA_PROVIDER="datahub_mcp" # optional DataHub MCP provider
+$env:WAREHOUSE_METADATA_PROVIDER="local_json"          # default mock metadata
+$env:WAREHOUSE_METADATA_PROVIDER="information_schema" # DuckDB/PostgreSQL/MySQL
+$env:WAREHOUSE_METADATA_PROVIDER="mcp"                # local MCP-backed provider
+$env:WAREHOUSE_METADATA_PROVIDER="datahub_mcp"        # optional DataHub MCP
 ```
 
-DuckDB information schema demo:
+### Information Schema Mode
+
+For a real local DuckDB demo:
 
 ```powershell
 python demo/init_duckdb_demo.py
@@ -110,18 +143,22 @@ $env:WAREHOUSE_DB_TYPE="duckdb"
 $env:WAREHOUSE_DUCKDB_PATH="./demo/warehouse_demo.duckdb"
 ```
 
-The DuckDB demo creates real local database tables; it is not a JSON mock. See
-[docs/information_schema_integration.md](docs/information_schema_integration.md).
+See [docs/information_schema_integration.md](docs/information_schema_integration.md).
 
-### Optional DataHub MCP Provider
+### DataHub MCP Mode
 
-The project now includes an optional `DataHubMcpProvider`. It treats DataHub as
-an external data map / metadata platform and can query DataHub MCP for asset
-search, dataset schema, lineage, ownership, tags, glossary terms, domain, and
-data product context.
+The project includes an optional `DataHubMcpProvider`. It treats DataHub as an
+external data map / metadata platform and can query DataHub MCP for:
 
-It is disabled by default, so local JSON and `information_schema` runs still work
-without DataHub:
+- asset search,
+- dataset schema,
+- upstream lineage,
+- ownership,
+- tags and glossary terms,
+- domain and data product context.
+
+It is disabled by default. Local JSON and `information_schema` modes do not need
+DataHub.
 
 ```powershell
 $env:WAREHOUSE_METADATA_PROVIDER="datahub_mcp"
@@ -130,9 +167,10 @@ $env:DATAHUB_GMS_URL="http://localhost:8080"
 $env:DATAHUB_GMS_TOKEN="<your-datahub-token>"
 $env:DATAHUB_MCP_COMMAND="uvx"
 $env:DATAHUB_MCP_PACKAGE="mcp-server-datahub@latest"
+$env:DATAHUB_TIMEOUT="10"
 ```
 
-When enabled, the agent planner can request:
+Agent-facing tools:
 
 - `search_datahub_assets`
 - `get_datahub_dataset_schema`
@@ -140,138 +178,80 @@ When enabled, the agent planner can request:
 - `get_datahub_ownership`
 - `get_datahub_tags_and_terms`
 
-The wrapper maps those agent-facing tool names to common DataHub MCP tools such
-as `search`, `get_entities`, `get_lineage`, and `list_schema_fields`. Tokens are
+The wrapper maps those internal tool names to common DataHub MCP tools such as
+`search`, `get_entities`, `get_lineage`, and `list_schema_fields`. Tokens are
 read from environment variables only and are redacted from structured errors.
 
 See [docs/datahub_mcp_integration.md](docs/datahub_mcp_integration.md) and
 [config/datahub_mcp.example.yml](config/datahub_mcp.example.yml).
 
-The current main flow is:
-
-```text
-parse_requirement -> retrieve_context -> decide_table_reuse
--> decide_modeling_strategy -> generate_modeling -> generate_ddl
--> generate_etl -> validate_sql -> review_sql_style
--> generate_dqc -> review_outputs
-```
-
-## From Workflow to Controlled Agent
-
-The first MVP behaved like a mostly fixed workflow:
-
-```text
-parse -> retrieve -> reuse -> modeling -> ddl -> etl -> validate -> review
-```
-
-The current version adds a controlled agent layer on top of that workflow:
-
-- `plan_task` builds an explicit Agent Plan before context retrieval.
-- `clarify_requirement` records missing metric or dimension semantics and marks
-  production-blocking questions for human review.
-- `tool_router` decides which metadata-provider tools to call and records tool
-  calls, results, and errors.
-- `sql_preview` can run a read-only DuckDB `SELECT` preview when the local
-  information_schema demo is configured.
-- `verify_outputs` summarizes SQL validation, SQL style review, SQL preview,
-  DQC status, rewrite needs, and human-review needs.
-- `rewrite_sql` is limited by `rewrite_count`, so the agent cannot loop forever.
-
-The controlled flow is:
-
-```text
-User Report Requirement
--> Planner
--> Clarification
--> Tool Router
--> MetadataProvider / RAG / SQL Review / SQL Preview
--> Modeling Strategy
--> DDL / ETL / DQC Generation
--> Verification
--> Rewrite or Human Review
--> Final Report
-```
-
-This is still not a production autonomous agent. It does not execute production
-write SQL, deploy scheduler jobs, bypass human approval, or connect to real
-company data platforms. DuckDB preview is SELECT-only, and key metric semantics
-still require human review before production use. See
-[docs/agent_upgrade.md](docs/agent_upgrade.md).
-
 ## Quick Start
 
-在本目录执行：
+Run the demo:
 
 ```powershell
 .\run_demo.ps1
 ```
 
-启动页面：
+Start the Streamlit app:
 
 ```powershell
 .\run_app.ps1
 ```
 
-打开：
+Open:
 
 ```text
 http://127.0.0.1:8501
 ```
 
-当前工作区路径包含中文，部分 `uv` 版本在 Windows 下写 `uv.lock` 可能失败，所以提供了 PowerShell 启动脚本。英文路径下也可以直接使用：
+You can also run directly in an English-only path:
 
 ```powershell
 uv run warehouse-agent --demo
 uv run streamlit run app.py
 ```
 
-## Example Cases
-
-复杂案例放在 `examples/` 目录中：
-
-- `examples/sales_channel_daily.md`：渠道经营分析日报，包含曝光/点击/下单/支付/退款/ARPU 等指标，以及渠道、地域、新老用户、会员等级等多维粒度。
-
-这个案例会触发表复用决策：Agent 会通过 MCP 检索元数据，并优先复用公共汇总表 `dws_trade_channel_day_summary_di`，只生成面向报表消费的 ADS SQL。对应回归测试在 `tests/test_examples.py`。
-
 ## LLM Config
 
-复制或编辑 `.env`：
+Copy or edit `.env`:
 
 ```text
 OPENAI_API_KEY=
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-5.5
 WAREHOUSE_AGENT_USE_LLM=true
+WAREHOUSE_METADATA_PROVIDER=local_json
 ```
 
-不要提交 `.env`，仓库只保留 `.env.example`。
+Do not commit `.env`. Use `.env.example` as the public template.
 
-测试 API：
+Without an API key, the agent still runs by using deterministic rule parsing.
+With an API key, requirement parsing prefers the configured LLM and falls back to
+rules if the upstream API rejects the request.
+
+Test the API config:
 
 ```powershell
 .\check_api.ps1
 ```
 
-没有 API Key 时也可以运行，系统会使用规则和模板生成一个稳定演示结果。
-
-如果 `check_api.ps1` 返回 `PermissionDeniedError: Your request was blocked.`，说明本地代码已经发起 LLM 请求，但上游接口拒绝了调用。常见原因是模型名不可用、API Key 没有该模型权限、第三方代理服务风控拦截，或接口并非完全兼容 OpenAI Chat Completions。此时 Agent 会自动回退到规则解析，`parsed.parser_source` 会显示 `rules_fallback_after_llm_error`。
-
 ## Local MCP Server
 
-启动 stdio 模式 MCP Server：
+Start the local stdio MCP server:
 
 ```powershell
 .\run_mcp.ps1
 ```
 
-或者使用 Python：
+Or run it with Python:
 
 ```powershell
 $env:PYTHONPATH="src;."
 python -m mcp_server.server
 ```
 
-LangGraph 主流程会通过 MCP client 调用这些工具。暴露的 MCP Tools：
+Exposed local MCP tools:
 
 - `search_warehouse_docs_tool`
 - `get_metric_definition_tool`
@@ -281,44 +261,55 @@ LangGraph 主流程会通过 MCP client 调用这些工具。暴露的 MCP Tools
 - `validate_sql_tool`
 - `health_check_tool`
 
-这些工具目前读取本地模拟知识库。后续可以替换成真实 Hive、DataHub、指标平台、SQL dry-run 服务或 DQC 平台。
+These local tools read the demo knowledge base today. They can later be replaced
+or complemented by Hive Metastore, DataHub, OpenMetadata, a metric platform, SQL
+dry-run service, or DQC platform.
 
-## Tests
+## Example Case
 
-运行测试：
+The complex case is stored in [examples/sales_channel_daily.md](examples/sales_channel_daily.md).
+It asks for a channel operation daily report with traffic, order, payment,
+refund, conversion, and ARPU-like metrics across channel, region, new/existing
+user, and member-level dimensions.
 
-```powershell
-.\run_tests.ps1
-```
-
-运行格式化、lint、类型检查和测试：
-
-```powershell
-.\run_quality.ps1
-```
-
-运行复杂渠道经营日报案例并打印关键诊断：
+Run:
 
 ```powershell
 .\run_complex_case.ps1
 ```
 
-当前测试覆盖：
+This case exercises LLM parsing when configured, metadata retrieval, table reuse,
+modeling strategy, SQL validation, and SQL style review.
 
-- 需求解析不会把“支付用户数”误判成“用户”维度。
-- 复杂中文术语会优先按最长词解析，避免把“支付转化率”误判成“转化率”、把“新老用户”误判成“用户”。
-- 复杂渠道经营日报案例可以完整跑通，并自动复用已有 DWS 表。
-- 建模策略能识别 DIM 表、增全量策略、join_plan 和 dependency_plan。
-- 表复用决策会检查字段覆盖、粒度、业务过程、分区、认证和 SLA。
-- SQL 风格审查能发现 SELECT *、过多 CTE 和无意义 CTE 名称。
-- LangGraph 可以停在人工确认态。
-- 人工确认后可以继续生成完整方案。
-- SQL 自检能发现缺分区、缺 GROUP BY 等问题。
-- MCP 工具可以返回指标、表结构、知识库检索和 SQL 校验结果。
-- 通过 MCP stdio client 启动本地 MCP Server 并调用 `health_check_tool`。
-- 主 Agent 流程会调用 MCP 工具并产出表复用决策。
-- SQLite 可以保存并召回相似历史会话。
-- `sqlglot` 可以发现 SELECT 非聚合字段缺少 GROUP BY 的结构问题。
+## Tests
+
+Run tests:
+
+```powershell
+.\run_tests.ps1
+```
+
+Run formatting, lint, mypy, package install, and tests:
+
+```powershell
+.\run_quality.ps1
+```
+
+Current coverage includes:
+
+- requirement parsing edge cases,
+- graph routing with human confirmation,
+- local MCP server tools,
+- metadata-provider-driven modeling,
+- `information_schema` provider,
+- DataHub MCP provider and tool wrappers with mocks,
+- tool router DataHub integration,
+- table reuse decision,
+- modeling strategy generation,
+- SQL validation,
+- SQL style review,
+- SQLite memory,
+- full complex report flow.
 
 ## Project Structure
 
@@ -326,49 +317,60 @@ LangGraph 主流程会通过 MCP client 调用这些工具。暴露的 MCP Tools
 warehouse_agent_mvp/
   app.py
   run_quality.ps1
-  mcp_server/
-    server.py
-    tools/
-      warehouse.py
+  run_complex_case.ps1
+  config/
+    datahub_mcp.example.yml
+  docs/
+    architecture.md
+    agent_upgrade.md
+    datahub_mcp_integration.md
+    information_schema_integration.md
+  examples/
+    sales_channel_daily.md
   knowledge_base/
     warehouse_standards.md
     metric_definitions.md
     table_metadata.json
     dqc_templates.md
-  examples/
-    sales_channel_daily.md
+  mcp_server/
+    server.py
+    tools/
+      warehouse.py
   src/dw_agent/
     graph.py
     state.py
     mcp_client.py
     memory.py
+    metadata/
+      provider.py
+      information_schema_provider.py
+      datahub_mcp_provider.py
+    nodes/
     tools/
       __init__.py
       datahub_mcp_client.py
       datahub_mcp_tool.py
-    metadata/
-      datahub_mcp_provider.py
-    nodes/
   tests/
-  docs/
 ```
 
 ## Current Limits
 
-- 元数据是模拟 JSON，不是生产元数据平台。
-- 外部 MCP/DataHub/OpenMetadata/Hive Metastore/InformationSchema 元数据源还需要继续接入。
-- 指标平台仍是本地 mock，还没有真实审批、血缘和版本管理。
-- 还没有真实调度平台或 DAG 发布。
-- RAG 是关键词检索，不是向量库。
-- SQL 自检包含规则校验和 `sqlglot` 结构校验，但还不是真实 SQL dry-run。
-- SQL 风格审查是 `sqlglot` + 规则兜底，不是完整 SQL 审核系统。
-- DQC 规则是模板生成，还没有接入真实 DQC 平台。
-- 生成 SQL 是初稿，真实落地前仍需人工 review。
+- This is still an MVP, not a production autonomous agent.
+- It does not deploy scheduler jobs or execute production write SQL.
+- Generated SQL still needs human review before production use.
+- Metric semantics still need a real metric platform or data owner approval.
+- DataHub MCP integration is read-only metadata context.
+- DQC rules are generated templates, not a connected production DQC platform.
+- SQL preview is local and SELECT-only.
+- RAG is keyword-based today, not a vector database.
 
 ## Roadmap
 
-- 接入真实 Hive/Glue/DataHub/元数据平台。
-- 把 RAG 从关键词检索升级为向量检索。
-- 增加 SQL parser / dry-run 校验。
-- 增加调度 DAG 生成。
-- 增加 CI，自动跑测试和 lint。
+- Add production metadata adapters for Hive Metastore, Glue, DataHub, or
+  OpenMetadata.
+- Connect a real metric platform with versioned metric semantics.
+- Add production SQL dry-run and permission checks.
+- Generate scheduler DAGs.
+- Add CI for automated tests, lint, and type checks.
+- Upgrade RAG from keyword search to vector retrieval.
+- Add richer DataHub/OpenMetadata lineage-driven table reuse decisions.
